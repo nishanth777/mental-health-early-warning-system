@@ -1,4 +1,5 @@
 from flask import jsonify, request
+from flask_jwt_extended import create_access_token
 from app.models.user import User
 from app.extensions import bcrypt,db
 from . import auth_bp
@@ -43,6 +44,46 @@ def signup():
         {
             "message": "User registered successfully"
         }
-    ),200
+    ),201
+
+
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+
+    email = data.get("email")
+    password = data.get("password")
+    
+    if not email or not password:
+        return jsonify(
+            {
+                "error":"Email or Password are required"
+            }
+        ),400
+    
+    user=User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify(
+        {
+            "error": "Invalid email or password"
+        }
+    ), 401
+
+    if not bcrypt.check_password_hash(user.password_hash, password):
+        return jsonify(
+            {
+                "error":"Invalid email or password"
+            }
+        ),401
+    
+    access_token=create_access_token(identity=str(user.id))
+    
+    return jsonify(
+        {
+           "message": "Login successful",
+            "access_token": access_token  
+        }
+    ), 200
 
    
