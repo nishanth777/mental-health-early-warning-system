@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import (create_access_token,jwt_required,get_jwt_header)
 from app.models.user import User
 from app.extensions import bcrypt,db
 from . import auth_bp
@@ -86,4 +86,11 @@ def login():
         }
     ), 200
 
-   
+@auth_bp.route("/profile", methods=["GET"])
+@jwt_required()
+def profile():
+    return jsonify(
+        {
+            "message": "Protected route working!"
+        }
+    ), 200
