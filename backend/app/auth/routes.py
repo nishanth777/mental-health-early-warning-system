@@ -1,5 +1,5 @@
 from flask import jsonify, request
-from flask_jwt_extended import (create_access_token,jwt_required,get_jwt_header)
+from flask_jwt_extended import (create_access_token,jwt_required,get_jwt_identity)
 from app.models.user import User
 from app.extensions import bcrypt,db
 from . import auth_bp
@@ -89,8 +89,23 @@ def login():
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def profile():
+
+    
+
+    identity = get_jwt_identity()
+
+    user = User.query.filter_by(id=identity).first()
+
+    if not user:
+        return jsonify(
+            {
+                "error": "User not found"
+            }
+        ), 404
+
     return jsonify(
         {
-            "message": "Protected route working!"
+            "full_name": user.full_name,
+            "email": user.email
         }
     ), 200
