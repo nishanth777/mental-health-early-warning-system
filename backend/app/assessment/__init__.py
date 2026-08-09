@@ -1,5 +1,6 @@
 from flask import Blueprint
 
+print(">>> Loading assessment blueprint")
 
 assessment_bp = Blueprint(
     "assessment",
@@ -7,4 +8,6 @@ assessment_bp = Blueprint(
     url_prefix="/assessment"
 )
 
-from . import routes 
+print(">>> Importing assessment routes")
+from . import routes
+print(">>> Assessment routes imported")
