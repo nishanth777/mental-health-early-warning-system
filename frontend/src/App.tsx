@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import DailyCheckIn from "./pages/DailyCheckIn";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -14,10 +15,6 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 
 import { ThemeProvider } from "./context/ThemeContext";
-
-function Register() {
-  return <div>Clarity Register</div>;
-}
 
 function App() {
   return (

@@ -3,15 +3,14 @@ import {
   ClipboardCheck,
   TrendingUp,
   User,
-  Settings as SettingsIcon,
+  Settings,
   Moon,
-  Sun,
   LogOut,
   Menu,
   X,
+  Mail,
+  UserRound,
   ShieldCheck,
-  Bell,
-  Palette,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -22,9 +21,8 @@ import { useTheme } from "../context/ThemeContext";
 
 import "../App.css";
 
-function Settings() {
-  const { logout } =
-    useAuth();
+function Profile() {
+  const { user, logout } = useAuth();
 
   const {
     darkMode,
@@ -34,8 +32,25 @@ function Settings() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
-  const [notifications, setNotifications] =
-    useState(true);
+  const getInitials = (
+    name: string
+  ) => {
+    return name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(
+        (part) =>
+          part
+            .charAt(0)
+            .toUpperCase()
+      )
+      .join("");
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
 
   return (
     <div className="dashboard-page">
@@ -51,7 +66,7 @@ function Settings() {
         <Menu size={22} />
       </button>
 
-      {/* Overlay */}
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="sidebar-overlay"
@@ -100,6 +115,7 @@ function Settings() {
               }
             >
               <Home size={19} />
+
               <span>
                 Dashboard
               </span>
@@ -115,6 +131,7 @@ function Settings() {
               <ClipboardCheck
                 size={19}
               />
+
               <span>
                 Daily Check-In
               </span>
@@ -128,6 +145,7 @@ function Settings() {
               }
             >
               <TrendingUp size={19} />
+
               <span>
                 Progress
               </span>
@@ -135,12 +153,13 @@ function Settings() {
 
             <Link
               to="/profile"
-              className="sidebar-item"
+              className="sidebar-item active"
               onClick={() =>
                 setSidebarOpen(false)
               }
             >
               <User size={19} />
+
               <span>
                 Profile
               </span>
@@ -150,24 +169,25 @@ function Settings() {
 
         </div>
 
+        {/* Sidebar bottom */}
         <div className="sidebar-bottom">
 
+          {/* Settings */}
           <Link
             to="/settings"
-            className="sidebar-item active"
+            className="sidebar-item"
             onClick={() =>
               setSidebarOpen(false)
             }
           >
-            <SettingsIcon
-              size={19}
-            />
+            <Settings size={19} />
 
             <span>
               Settings
             </span>
           </Link>
 
+          {/* Dark Mode */}
           <button
             className="sidebar-item sidebar-button"
             type="button"
@@ -182,10 +202,11 @@ function Settings() {
             </span>
           </button>
 
+          {/* Logout */}
           <button
             className="sidebar-item sidebar-button logout-item"
             type="button"
-            onClick={logout}
+            onClick={handleLogout}
           >
             <LogOut size={19} />
 
@@ -198,184 +219,146 @@ function Settings() {
 
       </aside>
 
-      {/* Main */}
-      <main className="dashboard-main settings-main">
+      {/* Main content */}
+      <main className="dashboard-main">
 
+        {/* Header */}
         <header className="dashboard-header">
 
           <div>
 
             <p className="dashboard-eyebrow">
-              Personal preferences
+              Your account
             </p>
 
             <h1>
-              Settings
+              Profile
             </h1>
 
             <p className="dashboard-subtitle">
-              Customize your Clarity
-              experience.
+              Manage your Clarity account
+              information.
             </p>
 
           </div>
 
         </header>
 
-        <section className="settings-layout">
+        {/* Profile content */}
+        <section className="profile-layout">
 
-          {/* Appearance */}
-          <div className="settings-card">
+          {/* Identity card */}
+          <div className="profile-card profile-identity-card">
 
-            <div className="settings-card-header">
+            <div className="profile-avatar">
 
-              <div className="settings-card-icon">
-                <Palette size={21} />
-              </div>
-
-              <div>
-
-                <p className="dashboard-eyebrow">
-                  Appearance
-                </p>
-
-                <h2>
-                  Display preferences
-                </h2>
-
-              </div>
+              {user
+                ? getInitials(
+                    user.full_name
+                  )
+                : "U"}
 
             </div>
 
-            <div className="settings-option">
+            <h2>
+              {user?.full_name ||
+                "User"}
+            </h2>
 
-              <div className="settings-option-icon">
+            <p>
+              {user?.email ||
+                "Email unavailable"}
+            </p>
 
-                {darkMode ? (
-                  <Moon size={20} />
-                ) : (
-                  <Sun size={20} />
-                )}
+            <div className="profile-status">
 
-              </div>
+              <ShieldCheck size={16} />
 
-              <div className="settings-option-content">
-
-                <strong>
-                  Dark mode
-                </strong>
-
-                <span>
-                  Use a darker appearance
-                  throughout Clarity.
-                </span>
-
-              </div>
-
-              <button
-                type="button"
-                className={
-                  darkMode
-                    ? "settings-toggle active"
-                    : "settings-toggle"
-                }
-                onClick={
-                  toggleDarkMode
-                }
-                aria-label="Toggle dark mode"
-                aria-pressed={darkMode}
-              >
-                <span />
-              </button>
+              <span>
+                Account verified
+              </span>
 
             </div>
 
           </div>
 
-          {/* Notifications */}
-          <div className="settings-card">
+          {/* Personal information */}
+          <div className="profile-card">
 
-            <div className="settings-card-header">
-
-              <div className="settings-card-icon">
-                <Bell size={21} />
-              </div>
+            <div className="profile-card-heading">
 
               <div>
 
                 <p className="dashboard-eyebrow">
-                  Notifications
+                  Account details
                 </p>
 
                 <h2>
-                  Reminder preferences
+                  Personal information
                 </h2>
 
               </div>
 
-            </div>
-
-            <div className="settings-option">
-
-              <div className="settings-option-icon">
-                <Bell size={20} />
-              </div>
-
-              <div className="settings-option-content">
-
-                <strong>
-                  Wellbeing reminders
-                </strong>
-
-                <span>
-                  Receive reminders to
-                  complete your daily
-                  check-in.
-                </span>
-
-              </div>
-
-              <button
-                type="button"
-                className={
-                  notifications
-                    ? "settings-toggle active"
-                    : "settings-toggle"
-                }
-                onClick={() =>
-                  setNotifications(
-                    (current) =>
-                      !current
-                  )
-                }
-                aria-label="Toggle notifications"
-                aria-pressed={
-                  notifications
-                }
-              >
-                <span />
-              </button>
+              <UserRound size={22} />
 
             </div>
 
-            <p className="settings-note">
-              Notification delivery will
-              be connected when the reminder
-              system is implemented.
-            </p>
+            <div className="profile-information">
+
+              {/* Full name */}
+              <div className="profile-information-row">
+
+                <div className="profile-information-icon">
+                  <UserRound
+                    size={18}
+                  />
+                </div>
+
+                <div>
+
+                  <span>
+                    Full name
+                  </span>
+
+                  <strong>
+                    {user?.full_name ||
+                      "Not available"}
+                  </strong>
+
+                </div>
+
+              </div>
+
+              {/* Email */}
+              <div className="profile-information-row">
+
+                <div className="profile-information-icon">
+                  <Mail size={18} />
+                </div>
+
+                <div>
+
+                  <span>
+                    Email address
+                  </span>
+
+                  <strong>
+                    {user?.email ||
+                      "Not available"}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
 
           </div>
 
           {/* Privacy */}
-          <div className="settings-card">
+          <div className="profile-card profile-privacy-card">
 
-            <div className="settings-card-header">
-
-              <div className="settings-card-icon">
-                <ShieldCheck
-                  size={21}
-                />
-              </div>
+            <div className="profile-card-heading">
 
               <div>
 
@@ -389,36 +372,33 @@ function Settings() {
 
               </div>
 
-            </div>
-
-            <div className="settings-info">
-
-              <p>
-                Your assessment responses are
-                associated with your account so
-                Clarity can provide personalized
-                progress information.
-              </p>
-
-              <p>
-                Clarity is an awareness and
-                preventive wellbeing system.
-                Its risk scores are not medical
-                diagnoses.
-              </p>
+              <ShieldCheck
+                size={22}
+              />
 
             </div>
+
+            <p>
+              Your check-ins are associated
+              with your account so Clarity
+              can show your personal wellbeing
+              patterns and progress over time.
+            </p>
+
+            <p>
+              Clarity is designed for
+              awareness and preventive
+              wellbeing support. Its risk
+              indicators are not medical
+              diagnoses.
+            </p>
 
           </div>
 
-          {/* Account */}
-          <div className="settings-card settings-account-card">
+          {/* Sign out */}
+          <div className="profile-card profile-logout-card">
 
             <div>
-
-              <p className="dashboard-eyebrow">
-                Account
-              </p>
 
               <h2>
                 Sign out
@@ -432,22 +412,15 @@ function Settings() {
             </div>
 
             <button
-              className="settings-logout-button"
+              className="profile-logout-button"
               type="button"
-              onClick={logout}
+              onClick={handleLogout}
             >
               <LogOut size={18} />
               Sign out
             </button>
 
           </div>
-
-          <p className="assessment-disclaimer">
-            Clarity is designed to support
-            awareness and wellbeing. It does
-            not diagnose mental health
-            conditions.
-          </p>
 
         </section>
 
@@ -457,4 +430,4 @@ function Settings() {
   );
 }
 
-export default Settings;
+export default Profile;

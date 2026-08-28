@@ -26,7 +26,7 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 
 import api from "../services/api";
-
+import VoiceInput from "../components/VoiceInput";
 import "../App.css";
 
 interface AssessmentResult {
@@ -161,14 +161,15 @@ function DailyCheckIn() {
 
     /*
      * Validate screen time.
+     * Allowed range: 0–24 hours.
      */
     if (
       !Number.isFinite(screen) ||
-      screen < 2 ||
-      screen > 12
+      screen < 0 ||
+      screen > 24
     ) {
       setError(
-        "Screen time should be between 2 and 12 hours."
+        "Screen time should be between 0 and 24 hours."
       );
 
       return;
@@ -734,6 +735,7 @@ function DailyCheckIn() {
                     Tell us a little about
                     your daily routine.
                   </p>
+
                 </div>
 
               </div>
@@ -784,8 +786,8 @@ function DailyCheckIn() {
                     }
                     placeholder="5"
                     suffix="hours"
-                    min="2"
-                    max="12"
+                    min="0"
+                    max="24"
                     step="0.1"
                   />
 
@@ -840,6 +842,13 @@ function DailyCheckIn() {
                   to share about how you're
                   feeling?
                 </label>
+
+                <VoiceInput
+                  existingText={journalText}
+                  onTranscript={(text) =>
+                    setJournalText(text)
+                  }
+                />
 
                 <textarea
                   id="journal"
