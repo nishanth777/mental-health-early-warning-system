@@ -1,7 +1,14 @@
 from flask import jsonify, request
-from flask_jwt_extended import (create_access_token,jwt_required,get_jwt_identity)
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity
+)
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 from app.models.user import User
-from app.extensions import bcrypt,db
+from app.extensions import bcrypt, db
 from . import auth_bp
 
 
@@ -85,6 +92,71 @@ def login():
             "access_token": access_token  
         }
     ), 200
+
+@auth_bp.route("/google", methods=["POST"])
+def google_login():
+    data = request.get_json()
+
+    google_token = data.get("credential")
+
+    if not google_token:
+        return jsonify(
+            {
+                "error": "Google credential is required"
+            }
+        ), 400
+
+    try:
+        GOOGLE_CLIENT_ID = "101681046390-bg14ds2o6kmu0snob1prfisnprrgh000.apps.googleusercontent.com"
+
+        idinfo = id_token.verify_oauth2_token(
+            google_token,
+            google_requests.Request(),
+            GOOGLE_CLIENT_ID
+        )
+
+        email = idinfo.get("email")
+        full_name = idinfo.get("name")
+
+        if not email:
+            return jsonify(
+                {
+                    "error": "Google account email not available"
+                }
+            ), 400
+
+        user = User.query.filter_by(email=email).first()
+
+        if not user:
+            user = User(
+                full_name=full_name or "Google User",
+                email=email,
+                password_hash=None,
+                provider="google"
+            )
+
+            db.session.add(user)
+            db.session.commit()
+
+        access_token = create_access_token(
+            identity=str(user.id)
+        )
+
+        return jsonify(
+            {
+                "message": "Google login successful",
+                "access_token": access_token
+            }
+        ), 200
+
+    except ValueError:
+        return jsonify(
+            {
+                "error": "Invalid Google credential"
+            }
+        ), 401
+
+    
 
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()

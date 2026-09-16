@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import api from "../services/api";
 import "../App.css";
 import { useAuth } from "../context/AuthContext";
+import { GoogleLogin } from "@react-oauth/google";
 
 const taglines = [
   "Understand yourself. Grow every day.",
@@ -81,6 +82,52 @@ function Login() {
     }
   };
 
+  const handleGoogleLogin = async (credentialResponse: any) => {
+    setError("");
+
+    if (!credentialResponse.credential) {
+      setError("Google sign-in did not return a valid credential.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      /*
+       * Send Google's ID token to Flask.
+       * Flask verifies the token and returns
+       * our application's JWT.
+       */
+      const response = await api.post("/auth/google", {
+        credential: credentialResponse.credential,
+      });
+
+      const token = response.data.access_token;
+
+      if (!token) {
+        throw new Error("No access token received.");
+      }
+
+      /*
+       * Use the same authentication flow as
+       * normal email/password login.
+       */
+      await login(token);
+
+      navigate("/dashboard");
+    } catch (err: any) {
+      console.error("Google login failed:", err);
+
+      const message =
+        err.response?.data?.error ||
+        "Unable to sign in with Google. Please try again.";
+
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="login-page">
 
@@ -137,15 +184,17 @@ function Login() {
             </div>
 
             {/* Google OAuth */}
-            <button
-              className="google-button"
-              type="button"
-              onClick={() => {
-                // Google OAuth will be connected later.
-              }}
-            >
-              Continue with Google
-            </button>
+            <div className="google-login-wrapper">
+              <GoogleLogin
+                onSuccess={handleGoogleLogin}
+                onError={() => {
+                  setError(
+                    "Google sign-in was unsuccessful. Please try again."
+                  );
+                }}
+                useOneTap={false}
+              />
+            </div>
 
             {/* Divider */}
             <div className="divider">
