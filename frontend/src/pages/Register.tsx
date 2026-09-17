@@ -5,6 +5,14 @@ import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import api from "../services/api";
 import "../App.css";
 
+const taglines = [
+  "Understand yourself. Grow every day.",
+  "Clearer mind. Better wellbeing.",
+  "Small check-ins. Better wellbeing.",
+  "Take a moment. Check in with yourself.",
+  "Your wellbeing deserves attention too.",
+];
+
 function Register() {
   const navigate = useNavigate();
 
@@ -20,6 +28,11 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [tagline] = useState(() => {
+    const index = Math.floor(Math.random() * taglines.length);
+    return taglines[index];
+  });
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -76,214 +89,245 @@ function Register() {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <main className="login-page">
 
-        <div className="auth-header">
-          <p className="auth-eyebrow">
-            Student wellbeing
-          </p>
+      {/* Left visual section */}
+      <section className="login-visual">
+        <div className="visual-orb orb-one" />
+        <div className="visual-orb orb-two" />
 
-          <h1>Create your account</h1>
-
-          <p>
-            Create an account to begin monitoring your
-            wellbeing and track your progress over time.
-          </p>
+        <div className="wellness-placeholder">
+          <div className="placeholder-circle" />
+          <div className="placeholder-leaf leaf-one" />
+          <div className="placeholder-leaf leaf-two" />
         </div>
 
-        <form
-          className="auth-form"
-          onSubmit={handleSubmit}
-        >
+        <p className="visual-caption">
+          A calmer way to understand your wellbeing.
+        </p>
+      </section>
 
-          {/* Full Name */}
-          <div className="auth-field">
+      {/* Register section */}
+      <section className="login-section">
+        <div className="login-content">
 
-            <label htmlFor="fullName">
-              Full name
-            </label>
+          {/* Brand */}
+          <div className="brand">
+            <span className="brand-name">
+              Clarity
+            </span>
 
-            <div className="auth-input-wrapper">
-              <User size={18} />
-
-              <input
-                id="fullName"
-                type="text"
-                placeholder="Enter your full name"
-                value={fullName}
-                onChange={(event) =>
-                  setFullName(event.target.value)
-                }
-                autoComplete="name"
-              />
-            </div>
-
+            <p>{tagline}</p>
           </div>
 
-          {/* Email */}
-          <div className="auth-field">
+          {/* Card */}
+          <div className="login-card register-card">
 
-            <label htmlFor="email">
-              Email address
-            </label>
+            <div className="login-heading">
+              <h1>Create your account</h1>
 
-            <div className="auth-input-wrapper">
-              <Mail size={18} />
-
-              <input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(event) =>
-                  setEmail(event.target.value)
-                }
-                autoComplete="email"
-              />
+              <p>
+                Start monitoring your wellbeing and track
+                your progress over time.
+              </p>
             </div>
 
-          </div>
+            <form
+              className="register-form"
+              onSubmit={handleSubmit}
+            >
 
-          {/* Password */}
-          <div className="auth-field">
+              {/* Full name */}
+              <div className="register-form-group">
+                <label htmlFor="fullName">
+                  Full name
+                </label>
 
-            <label htmlFor="password">
-              Password
-            </label>
+                <div className="register-input-wrapper">
+                  <User size={18} />
 
-            <div className="auth-input-wrapper">
-              <Lock size={18} />
+                  <input
+                    id="fullName"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={fullName}
+                    onChange={(event) =>
+                      setFullName(event.target.value)
+                    }
+                    autoComplete="name"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
 
-              <input
-                id="password"
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
-                placeholder="Create a password"
-                value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
-                autoComplete="new-password"
-              />
+              {/* Email */}
+              <div className="register-form-group">
+                <label htmlFor="register-email">
+                  Email address
+                </label>
 
+                <div className="register-input-wrapper">
+                  <Mail size={18} />
+
+                  <input
+                    id="register-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(event) =>
+                      setEmail(event.target.value)
+                    }
+                    autoComplete="email"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="register-form-group">
+                <label htmlFor="register-password">
+                  Password
+                </label>
+
+                <div className="register-input-wrapper">
+                  <Lock size={18} />
+
+                  <input
+                    id="register-password"
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={(event) =>
+                      setPassword(event.target.value)
+                    }
+                    autoComplete="new-password"
+                    disabled={loading}
+                  />
+
+                  <button
+                    type="button"
+                    className="register-password-toggle"
+                    onClick={() =>
+                      setShowPassword(
+                        (current) => !current
+                      )
+                    }
+                    aria-label={
+                      showPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    disabled={loading}
+                  >
+                    {showPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm password */}
+              <div className="register-form-group">
+                <label htmlFor="confirmPassword">
+                  Confirm password
+                </label>
+
+                <div className="register-input-wrapper">
+                  <Lock size={18} />
+
+                  <input
+                    id="confirmPassword"
+                    type={
+                      showConfirmPassword
+                        ? "text"
+                        : "password"
+                    }
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(event) =>
+                      setConfirmPassword(
+                        event.target.value
+                      )
+                    }
+                    autoComplete="new-password"
+                    disabled={loading}
+                  />
+
+                  <button
+                    type="button"
+                    className="register-password-toggle"
+                    onClick={() =>
+                      setShowConfirmPassword(
+                        (current) => !current
+                      )
+                    }
+                    aria-label={
+                      showConfirmPassword
+                        ? "Hide password"
+                        : "Show password"
+                    }
+                    disabled={loading}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={18} />
+                    ) : (
+                      <Eye size={18} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="register-error">
+                  {error}
+                </div>
+              )}
+
+              {/* Success */}
+              {success && (
+                <div className="register-success">
+                  {success}
+                </div>
+              )}
+
+              {/* Submit */}
               <button
-                type="button"
-                className="auth-password-toggle"
-                onClick={() =>
-                  setShowPassword(
-                    (current) => !current
-                  )
-                }
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
+                type="submit"
+                className="login-button register-submit"
+                disabled={loading}
               >
-                {showPassword ? (
-                  <EyeOff size={18} />
-                ) : (
-                  <Eye size={18} />
-                )}
+                {loading
+                  ? "Creating account..."
+                  : "Create account"}
               </button>
-            </div>
+
+            </form>
+
+            {/* Footer */}
+            <p className="register-prompt">
+              Already have an account?{" "}
+              <Link to="/login">
+                Sign in
+              </Link>
+            </p>
 
           </div>
 
-          {/* Confirm Password */}
-          <div className="auth-field">
+          <p className="login-footer">
+            Clarity is designed to support awareness and wellbeing.
+          </p>
 
-            <label htmlFor="confirmPassword">
-              Confirm password
-            </label>
-
-            <div className="auth-input-wrapper">
-              <Lock size={18} />
-
-              <input
-                id="confirmPassword"
-                type={
-                  showConfirmPassword
-                    ? "text"
-                    : "password"
-                }
-                placeholder="Confirm your password"
-                value={confirmPassword}
-                onChange={(event) =>
-                  setConfirmPassword(
-                    event.target.value
-                  )
-                }
-                autoComplete="new-password"
-              />
-
-              <button
-                type="button"
-                className="auth-password-toggle"
-                onClick={() =>
-                  setShowConfirmPassword(
-                    (current) => !current
-                  )
-                }
-                aria-label={
-                  showConfirmPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
-              >
-                {showConfirmPassword ? (
-                  <EyeOff size={18} />
-                ) : (
-                  <Eye size={18} />
-                )}
-              </button>
-            </div>
-
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="auth-error">
-              {error}
-            </div>
-          )}
-
-          {/* Success */}
-          {success && (
-            <div className="auth-success">
-              {success}
-            </div>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            className="auth-submit-button"
-            disabled={loading}
-          >
-            {loading
-              ? "Creating account..."
-              : "Create account"}
-          </button>
-
-        </form>
-
-        <div className="auth-footer">
-          <span>
-            Already have an account?
-          </span>
-
-          <Link to="/login">
-            Sign in
-          </Link>
         </div>
+      </section>
 
-      </div>
-    </div>
+    </main>
   );
 }
 

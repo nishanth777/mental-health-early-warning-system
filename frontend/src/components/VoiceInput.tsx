@@ -4,11 +4,13 @@ import { Mic, MicOff, Square } from "lucide-react";
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
   existingText?: string;
+  onAudioRecorded?: (audioBlob: Blob) => void;
 }
 
 function VoiceInput({
   onTranscript,
   existingText = "",
+  onAudioRecorded,
 }: VoiceInputProps) {
   const [isListening, setIsListening] = useState(false);
   const [supported, setSupported] = useState(true);
@@ -16,15 +18,21 @@ function VoiceInput({
 
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
+
   const existingTextRef = useRef(existingText);
   const onTranscriptRef = useRef(onTranscript);
 
-  // Keep the latest journal text available without recreating recognition
+  // Audio recording references
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
+  // Keep the latest journal text available
   useEffect(() => {
     existingTextRef.current = existingText;
   }, [existingText]);
 
-  // Keep the latest callback available
+  // Keep the latest transcript callback available
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
@@ -46,7 +54,7 @@ function VoiceInput({
     recognition.lang = "en-IN";
 
     recognition.onstart = () => {
-      console.log("🎤 Microphone started");
+      console.log("🎤 Speech recognition started");
 
       isListeningRef.current = true;
       setIsListening(true);
@@ -69,7 +77,8 @@ function VoiceInput({
       if (transcript.trim()) {
         console.log("📝 Transcript:", transcript);
 
-        const currentText = existingTextRef.current.trim();
+        const currentText =
+          existingTextRef.current.trim();
 
         const newText = currentText
           ? `${currentText} ${transcript.trim()}`
@@ -103,7 +112,6 @@ function VoiceInput({
           "Speech recognition needs an internet connection."
         );
       } else if (event.error === "aborted") {
-        // Normal when Stop is pressed.
         setErrorMessage("");
       } else {
         setErrorMessage(
@@ -128,12 +136,185 @@ function VoiceInput({
         // Recognition may already be stopped.
       }
 
+      if (mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {
+          // Recorder may already be stopped.
+        }
+      }
+
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current
+          .getTracks()
+          .forEach((track) => track.stop());
+      }
+
       recognitionRef.current = null;
+      mediaRecorderRef.current = null;
+      mediaStreamRef.current = null;
       isListeningRef.current = false;
     };
   }, []);
 
-  const startListening = () => {
+  /*
+   * Start recording the actual microphone audio.
+   *
+   * This audio will later be used for voice-feature
+   * extraction such as pitch, energy, pauses, MFCCs,
+   * speaking rate, etc.
+   */
+  const startAudioRecording = async () => {
+    try {
+      console.log(
+        "🎙️ Requesting microphone for audio analysis..."
+      );
+
+      if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+      ) {
+        throw new Error(
+          "Microphone recording is not supported."
+        );
+      }
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+
+      /*
+       * Use WebM/Opus when available.
+       * Chrome normally supports this format.
+       */
+      let options: MediaRecorderOptions = {};
+
+      if (
+        MediaRecorder.isTypeSupported(
+          "audio/webm;codecs=opus"
+        )
+      ) {
+        options = {
+          mimeType: "audio/webm;codecs=opus",
+        };
+      } else if (
+        MediaRecorder.isTypeSupported("audio/webm")
+      ) {
+        options = {
+          mimeType: "audio/webm",
+        };
+      }
+
+      const recorder = new MediaRecorder(
+        stream,
+        options
+      );
+
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onerror = (event) => {
+        console.error(
+          "🎙️ MediaRecorder error:",
+          event
+        );
+      };
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(
+          audioChunksRef.current,
+          {
+            type:
+              recorder.mimeType ||
+              "audio/webm",
+          }
+        );
+
+        console.log(
+          "🎧 Audio recording created:",
+          audioBlob.size,
+          "bytes"
+        );
+
+        console.log(
+          "🎧 Audio type:",
+          audioBlob.type
+        );
+
+        /*
+         * Send the recorded audio to the parent
+         * component if it wants to use it.
+         */
+        if (onAudioRecorded) {
+          onAudioRecorded(audioBlob);
+        }
+
+        /*
+         * Release microphone resources.
+         */
+        stream
+          .getTracks()
+          .forEach((track) => track.stop());
+
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        audioChunksRef.current = [];
+      };
+
+      recorder.start();
+
+      console.log(
+        "🎙️ Audio recording started"
+      );
+    } catch (error) {
+      console.error(
+        "🎙️ Audio recording error:",
+        error
+      );
+
+      setErrorMessage(
+        "Unable to access the microphone for voice analysis."
+      );
+
+      throw error;
+    }
+  };
+
+  /*
+   * Stop the actual audio recorder.
+   */
+  const stopAudioRecording = () => {
+    console.log(
+      "🛑 Stopping audio recording..."
+    );
+
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  /*
+   * Start both:
+   *
+   * 1. SpeechRecognition → journal text
+   * 2. MediaRecorder → audio Blob
+   *
+   * Speech recognition is started first so the existing
+   * speech-to-text functionality remains the priority.
+   */
+  const startListening = async () => {
     console.log("VOICE BUTTON CLICKED");
 
     if (!supported) {
@@ -150,7 +331,6 @@ function VoiceInput({
       return;
     }
 
-    // Prevent duplicate start() calls
     if (isListeningRef.current) {
       console.log(
         "🎤 Recognition is already running."
@@ -161,11 +341,33 @@ function VoiceInput({
     try {
       setErrorMessage("");
 
+      /*
+       * Start speech recognition first.
+       */
       recognitionRef.current.start();
 
       console.log(
         "🎤 Starting speech recognition..."
       );
+
+      /*
+       * Start audio recording separately.
+       *
+       * If this fails, speech-to-text continues working.
+       */
+      try {
+        await startAudioRecording();
+      } catch (audioError) {
+        console.error(
+          "🎙️ Audio recording could not start:",
+          audioError
+        );
+
+        /*
+         * Do not stop speech recognition.
+         * The journal voice input should continue working.
+         */
+      }
     } catch (error: any) {
       console.error(
         "Speech recognition start error:",
@@ -181,29 +383,32 @@ function VoiceInput({
         setIsListening(true);
       } else {
         setErrorMessage(
-          "Unable to start speech recognition. Please try again."
+          "Unable to start voice input. Please try again."
         );
       }
     }
   };
 
+  /*
+   * Stop both speech recognition and audio recording.
+   */
   const stopListening = () => {
     console.log(
-      "🛑 Stopping speech recognition..."
+      "🛑 Stopping voice input..."
     );
 
-    if (!recognitionRef.current) {
-      return;
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (error) {
+        console.error(
+          "Error stopping recognition:",
+          error
+        );
+      }
     }
 
-    try {
-      recognitionRef.current.stop();
-    } catch (error) {
-      console.error(
-        "Error stopping recognition:",
-        error
-      );
-    }
+    stopAudioRecording();
 
     isListeningRef.current = false;
     setIsListening(false);
