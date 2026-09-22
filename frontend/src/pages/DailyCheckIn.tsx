@@ -14,6 +14,7 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  Mic,
 } from "lucide-react";
 
 import { useState } from "react";
@@ -34,6 +35,9 @@ interface AssessmentResult {
   risk_score: number;
   risk_level: string;
   recommendations: string[];
+
+  voice_used?: boolean;
+  voice_features?: Record<string, number> | null;
 }
 
 function DailyCheckIn() {
@@ -56,9 +60,7 @@ function DailyCheckIn() {
     useState("");
 
   const [result, setResult] =
-    useState<AssessmentResult | null>(
-      null
-    );
+    useState<AssessmentResult | null>(null);
 
   const [sleepHours, setSleepHours] =
     useState("");
@@ -93,6 +95,9 @@ function DailyCheckIn() {
   const [journalText, setJournalText] =
     useState("");
 
+  const [voiceAudio, setVoiceAudio] =
+    useState<Blob | null>(null);
+
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
@@ -101,9 +106,6 @@ function DailyCheckIn() {
     setError("");
     setResult(null);
 
-    /*
-     * Validate rating fields.
-     */
     if (
       sleepQuality === null ||
       stressLevel === null ||
@@ -115,23 +117,14 @@ function DailyCheckIn() {
       setError(
         "Please complete all wellbeing ratings before submitting."
       );
-
       return;
     }
 
     const sleep = Number(sleepHours);
-    const exercise =
-      Number(exerciseMinutes);
+    const exercise = Number(exerciseMinutes);
+    const screen = Number(screenTime);
+    const study = Number(studyHours);
 
-    const screen =
-      Number(screenTime);
-
-    const study =
-      Number(studyHours);
-
-    /*
-     * Validate sleep.
-     */
     if (
       !Number.isFinite(sleep) ||
       sleep < 3 ||
@@ -140,13 +133,9 @@ function DailyCheckIn() {
       setError(
         "Sleep duration should be between 3 and 9 hours."
       );
-
       return;
     }
 
-    /*
-     * Validate exercise.
-     */
     if (
       !Number.isFinite(exercise) ||
       exercise < 0 ||
@@ -155,14 +144,9 @@ function DailyCheckIn() {
       setError(
         "Exercise duration should be between 0 and 90 minutes."
       );
-
       return;
     }
 
-    /*
-     * Validate screen time.
-     * Allowed range: 0–24 hours.
-     */
     if (
       !Number.isFinite(screen) ||
       screen < 0 ||
@@ -171,13 +155,9 @@ function DailyCheckIn() {
       setError(
         "Screen time should be between 0 and 24 hours."
       );
-
       return;
     }
 
-    /*
-     * Validate study time.
-     */
     if (
       !Number.isFinite(study) ||
       study < 2 ||
@@ -186,18 +166,13 @@ function DailyCheckIn() {
       setError(
         "Study hours should be between 2 and 12 hours."
       );
-
       return;
     }
 
-    /*
-     * Validate journal.
-     */
     if (!journalText.trim()) {
       setError(
         "Please write a short reflection before submitting."
       );
-
       return;
     }
 
@@ -205,36 +180,93 @@ function DailyCheckIn() {
       setSubmitting(true);
 
       const token =
-        localStorage.getItem(
-          "access_token"
-        );
+        localStorage.getItem("access_token");
 
       if (!token) {
         logout();
         return;
       }
 
-      const assessmentData = {
-        sleep_hours: sleep,
-        sleep_quality: sleepQuality,
-        stress_level: stressLevel,
-        academic_pressure:
-          academicPressure,
-        mood,
-        energy_level: energyLevel,
-        social_interaction:
-          socialInteraction,
-        exercise_minutes: exercise,
-        screen_time: screen,
-        study_hours: study,
-        journal_text:
-          journalText.trim(),
-      };
+      const formData = new FormData();
+
+      formData.append(
+        "sleep_hours",
+        String(sleep)
+      );
+
+      formData.append(
+        "sleep_quality",
+        String(sleepQuality)
+      );
+
+      formData.append(
+        "stress_level",
+        String(stressLevel)
+      );
+
+      formData.append(
+        "academic_pressure",
+        String(academicPressure)
+      );
+
+      formData.append(
+        "mood",
+        String(mood)
+      );
+
+      formData.append(
+        "energy_level",
+        String(energyLevel)
+      );
+
+      formData.append(
+        "social_interaction",
+        String(socialInteraction)
+      );
+
+      formData.append(
+        "exercise_minutes",
+        String(exercise)
+      );
+
+      formData.append(
+        "screen_time",
+        String(screen)
+      );
+
+      formData.append(
+        "study_hours",
+        String(study)
+      );
+
+      formData.append(
+        "journal_text",
+        journalText.trim()
+      );
+
+      if (voiceAudio) {
+        formData.append(
+          "voice_audio",
+          voiceAudio,
+          "voice_recording.webm"
+        );
+
+        console.log(
+          "🎙️ Sending voice audio:",
+          voiceAudio.size,
+          "bytes",
+          voiceAudio.type
+        );
+      } else {
+        console.log(
+          "🎙️ No voice audio recorded."
+        );
+      }
 
       const response =
         await api.post(
           "/assessment/",
-          assessmentData,
+          formData,
           {
             headers: {
               Authorization:
@@ -242,6 +274,11 @@ function DailyCheckIn() {
             },
           }
         );
+
+      console.log(
+        "✅ Assessment submitted:",
+        response.data
+      );
 
       setResult(response.data);
 
@@ -300,7 +337,6 @@ function DailyCheckIn() {
             : ""
         }`}
       >
-
         <div className="sidebar-top">
 
           <div className="sidebar-brand">
@@ -343,9 +379,7 @@ function DailyCheckIn() {
                 setSidebarOpen(false)
               }
             >
-              <ClipboardCheck
-                size={19}
-              />
+              <ClipboardCheck size={19} />
               <span>
                 Daily Check-In
               </span>
@@ -423,7 +457,6 @@ function DailyCheckIn() {
           </button>
 
         </div>
-
       </aside>
 
       {/* Main */}
@@ -450,14 +483,15 @@ function DailyCheckIn() {
 
         </header>
 
-        {/* Result */}
+        {/* =========================
+            RESULT
+        ========================== */}
+
         {result && (
           <section className="assessment-result">
 
             <div className="result-icon">
-              <CheckCircle2
-                size={30}
-              />
+              <CheckCircle2 size={30} />
             </div>
 
             <p className="dashboard-eyebrow">
@@ -488,6 +522,43 @@ function DailyCheckIn() {
               self-reported wellbeing data.
               It is not a medical diagnosis.
             </p>
+
+            {/* =========================
+                VOICE ANALYSIS
+            ========================== */}
+
+            {result.voice_used && (
+              <div className="voice-analysis-status">
+
+                <div className="voice-analysis-icon">
+                  <Mic size={20} />
+                </div>
+
+                <div className="voice-analysis-content">
+
+                  <strong>
+                    Voice analysis captured
+                  </strong>
+
+                  <p>
+                    Your voice recording was
+                    successfully processed for
+                    acoustic feature extraction.
+                  </p>
+
+                  <small>
+                    Voice features are currently
+                    collected separately and are
+                    not used to determine the
+                    displayed risk score.
+                  </small>
+
+                </div>
+
+              </div>
+            )}
+
+            {/* Recommendations */}
 
             {result.recommendations &&
               result.recommendations.length >
@@ -527,7 +598,10 @@ function DailyCheckIn() {
           </section>
         )}
 
-        {/* Form */}
+        {/* =========================
+            FORM
+        ========================== */}
+
         {!result && (
           <form
             className="checkin-form"
@@ -547,6 +621,7 @@ function DailyCheckIn() {
             )}
 
             {/* Sleep */}
+
             <section className="checkin-card">
 
               <div className="checkin-card-header">
@@ -556,7 +631,10 @@ function DailyCheckIn() {
                 </div>
 
                 <div>
-                  <span>01</span>
+
+                  <span>
+                    01
+                  </span>
 
                   <h2>
                     Sleep
@@ -566,6 +644,7 @@ function DailyCheckIn() {
                     How has your sleep
                     been recently?
                   </p>
+
                 </div>
 
               </div>
@@ -628,6 +707,7 @@ function DailyCheckIn() {
             </section>
 
             {/* Mind & Mood */}
+
             <section className="checkin-card">
 
               <div className="checkin-card-header">
@@ -637,7 +717,10 @@ function DailyCheckIn() {
                 </div>
 
                 <div>
-                  <span>02</span>
+
+                  <span>
+                    02
+                  </span>
 
                   <h2>
                     Mind & Mood
@@ -647,6 +730,7 @@ function DailyCheckIn() {
                     Reflect on your emotional
                     and mental wellbeing.
                   </p>
+
                 </div>
 
               </div>
@@ -716,6 +800,7 @@ function DailyCheckIn() {
             </section>
 
             {/* Lifestyle */}
+
             <section className="checkin-card">
 
               <div className="checkin-card-header">
@@ -725,7 +810,10 @@ function DailyCheckIn() {
                 </div>
 
                 <div>
-                  <span>03</span>
+
+                  <span>
+                    03
+                  </span>
 
                   <h2>
                     Lifestyle
@@ -812,6 +900,7 @@ function DailyCheckIn() {
             </section>
 
             {/* Reflection */}
+
             <section className="checkin-card">
 
               <div className="checkin-card-header">
@@ -821,7 +910,10 @@ function DailyCheckIn() {
                 </div>
 
                 <div>
-                  <span>04</span>
+
+                  <span>
+                    04
+                  </span>
 
                   <h2>
                     Reflection
@@ -831,6 +923,7 @@ function DailyCheckIn() {
                     Put your thoughts into
                     words.
                   </p>
+
                 </div>
 
               </div>
@@ -847,6 +940,9 @@ function DailyCheckIn() {
                   existingText={journalText}
                   onTranscript={(text) =>
                     setJournalText(text)
+                  }
+                  onAudioRecorded={(audioBlob) =>
+                    setVoiceAudio(audioBlob)
                   }
                 />
 
@@ -872,6 +968,7 @@ function DailyCheckIn() {
             </section>
 
             {/* Submit */}
+
             <div className="checkin-submit">
 
               <div>
@@ -893,6 +990,7 @@ function DailyCheckIn() {
                 type="submit"
                 disabled={submitting}
               >
+
                 {submitting ? (
                   <>
                     <Activity size={18} />
@@ -904,6 +1002,7 @@ function DailyCheckIn() {
                     Analyze my check-in
                   </>
                 )}
+
               </button>
 
             </div>

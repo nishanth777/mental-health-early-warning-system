@@ -5605,3 +5605,101 @@ html.dark-mode .auth-footer a {
   font-size: 13px;
   line-height: 1.4;
 }
+/* =========================================
+   VOICE ANALYSIS RESULT
+========================================= */
+
+.voice-analysis-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+
+  margin-top: 22px;
+  padding: 17px;
+
+  border: 1px solid #e6def5;
+  border-radius: 16px;
+
+  background: #faf8ff;
+}
+
+.voice-analysis-icon {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: #f0eaff;
+  color: #7c3aed;
+}
+
+.voice-analysis-content {
+  min-width: 0;
+}
+
+.voice-analysis-content strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color: #352d42;
+
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.voice-analysis-content p {
+  margin: 0 0 7px;
+
+  color: #81798d;
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.voice-analysis-content small {
+  display: block;
+
+  color: #9a92a4;
+
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Dark mode */
+
+html.dark-mode .voice-analysis-status {
+  border-color: rgba(255, 255, 255, 0.10);
+  background: #191620;
+}
+
+html.dark-mode .voice-analysis-icon {
+  background: rgba(139, 92, 246, 0.14);
+  color: #c4b5fd;
+}
+
+html.dark-mode .voice-analysis-content strong {
+  color: #ffffff;
+}
+
+html.dark-mode .voice-analysis-content p {
+  color: #c9c2d3;
+}
+
+html.dark-mode .voice-analysis-content small {
+  color: #aaa2b5;
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+  .voice-analysis-status {
+    padding: 14px;
+  }
+}

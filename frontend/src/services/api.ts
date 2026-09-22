@@ -2,9 +2,6 @@ import axios from "axios";
 
 const api = axios.create({
   baseURL: "http://127.0.0.1:5000",
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 /*
@@ -18,6 +15,20 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization =
         `Bearer ${token}`;
+    }
+
+    /*
+     * Only set JSON Content-Type for normal
+     * JSON requests.
+     *
+     * For FormData, the browser/Axios must set
+     * multipart/form-data with the correct boundary.
+     */
+    if (!(config.data instanceof FormData)) {
+      config.headers["Content-Type"] =
+        "application/json";
+    } else {
+      delete config.headers["Content-Type"];
     }
 
     return config;
