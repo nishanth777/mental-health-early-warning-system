@@ -15,9 +15,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Mic,
+  Camera,
 } from "lucide-react";
 
-import { useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import {
   Link,
   useNavigate,
@@ -28,7 +34,9 @@ import { useTheme } from "../context/ThemeContext";
 
 import api from "../services/api";
 import VoiceInput from "../components/VoiceInput";
+
 import "../App.css";
+
 
 interface AssessmentResult {
   prediction: number;
@@ -38,9 +46,19 @@ interface AssessmentResult {
 
   voice_used?: boolean;
   voice_features?: Record<string, number> | null;
+
+  facial_used?: boolean;
+  facial_emotion?: string | null;
+  facial_confidence?: number | null;
+
+  structured_risk_score?: number;
+  nlp_risk_score?: number | null;
+  nlp_used?: boolean;
 }
 
+
 function DailyCheckIn() {
+
   const { logout } = useAuth();
 
   const {
@@ -49,6 +67,7 @@ function DailyCheckIn() {
   } = useTheme();
 
   const navigate = useNavigate();
+
 
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
@@ -61,6 +80,11 @@ function DailyCheckIn() {
 
   const [result, setResult] =
     useState<AssessmentResult | null>(null);
+
+
+  // ------------------------------------------------------------
+  // Assessment fields
+  // ------------------------------------------------------------
 
   const [sleepHours, setSleepHours] =
     useState("");
@@ -98,13 +122,454 @@ function DailyCheckIn() {
   const [voiceAudio, setVoiceAudio] =
     useState<Blob | null>(null);
 
+
+  // ------------------------------------------------------------
+  // Camera state
+  // ------------------------------------------------------------
+
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null);
+
+  const canvasRef =
+    useRef<HTMLCanvasElement | null>(null);
+
+  const streamRef =
+    useRef<MediaStream | null>(null);
+
+  const previewUrlRef =
+    useRef<string | null>(null);
+
+  const [cameraActive, setCameraActive] =
+    useState(false);
+
+  const [cameraImage, setCameraImage] =
+    useState<Blob | null>(null);
+
+  const [cameraPreview, setCameraPreview] =
+    useState<string | null>(null);
+
+  const [cameraReady, setCameraReady] =
+    useState(false);
+
+
+  // ------------------------------------------------------------
+  // Start camera
+  // ------------------------------------------------------------
+
+  const startCamera = async () => {
+
+    try {
+
+      setError("");
+
+      setCameraImage(null);
+
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(
+          previewUrlRef.current
+        );
+        previewUrlRef.current = null;
+      }
+
+      setCameraPreview(null);
+      setCameraReady(false);
+
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+
+        setError(
+          "Camera access is not supported by this browser."
+        );
+
+        return;
+      }
+
+
+      const stream =
+        await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: {
+              ideal: 640,
+            },
+            height: {
+              ideal: 480,
+            },
+          },
+          audio: false,
+        });
+
+
+      // Store the stream first.
+      // The <video> element is rendered only after
+      // cameraActive becomes true, so we attach the
+      // stream in the camera effect below.
+      streamRef.current = stream;
+
+      setCameraActive(true);
+
+    } catch (err) {
+
+      console.error(
+        "Camera access failed:",
+        err
+      );
+
+      setCameraReady(false);
+      setCameraActive(false);
+
+      if (streamRef.current) {
+        streamRef.current
+          .getTracks()
+          .forEach((track) => {
+            track.stop();
+          });
+
+        streamRef.current = null;
+      }
+
+      setError(
+        "Unable to access your camera. Please allow camera permission and try again."
+      );
+    }
+  };
+
+
+  // ------------------------------------------------------------
+  // Stop camera
+  // ------------------------------------------------------------
+
+  const stopCamera = () => {
+
+    if (streamRef.current) {
+
+      streamRef.current
+        .getTracks()
+        .forEach((track) => {
+          track.stop();
+        });
+
+      streamRef.current = null;
+    }
+
+
+    if (videoRef.current) {
+
+      videoRef.current.pause();
+
+      videoRef.current.srcObject =
+        null;
+    }
+
+
+    setCameraActive(false);
+    setCameraReady(false);
+  };
+
+
+  // ------------------------------------------------------------
+  // Capture camera frame
+  // ------------------------------------------------------------
+
+  const captureFace = () => {
+
+    const video =
+      videoRef.current;
+
+    const canvas =
+      canvasRef.current;
+
+
+    if (!video || !canvas) {
+
+      setError(
+        "Camera is not ready yet."
+      );
+
+      return;
+    }
+
+
+    if (
+      !cameraReady ||
+      video.videoWidth <= 0 ||
+      video.videoHeight <= 0
+    ) {
+
+      setError(
+        "Please wait until the camera preview is ready."
+      );
+
+      return;
+    }
+
+
+    const width =
+      video.videoWidth;
+
+    const height =
+      video.videoHeight;
+
+
+    canvas.width =
+      width;
+
+    canvas.height =
+      height;
+
+
+    const context =
+      canvas.getContext("2d");
+
+
+    if (!context) {
+
+      setError(
+        "Unable to capture camera image."
+      );
+
+      return;
+    }
+
+
+    // Capture the current video frame.
+    context.drawImage(
+      video,
+      0,
+      0,
+      width,
+      height
+    );
+
+
+    // Create an immediate preview from the canvas.
+    const previewUrl =
+      canvas.toDataURL(
+        "image/jpeg",
+        0.9
+      );
+
+
+    // Convert the same canvas image to a Blob
+    // for sending to the backend.
+    canvas.toBlob(
+      (blob) => {
+
+        if (!blob) {
+
+          setError(
+            "Unable to create the facial image."
+          );
+
+          return;
+        }
+
+
+        console.log(
+          "📷 Face captured successfully"
+        );
+
+        console.log(
+          "📷 Image size:",
+          blob.size,
+          "bytes"
+        );
+
+        console.log(
+          "📷 Image type:",
+          blob.type
+        );
+
+
+        setCameraImage(blob);
+
+
+        if (previewUrlRef.current) {
+
+          URL.revokeObjectURL(
+            previewUrlRef.current
+          );
+        }
+
+
+        previewUrlRef.current =
+          previewUrl;
+
+
+        setCameraPreview(
+          previewUrl
+        );
+
+
+        setError("");
+
+
+        // Stop camera only after
+        // successful capture.
+        stopCamera();
+
+      },
+      "image/jpeg",
+      0.9
+    );
+  };
+
+
+  // ------------------------------------------------------------
+  // Retake face image
+  // ------------------------------------------------------------
+
+  const retakeFace = async () => {
+
+    // Stop any existing camera first.
+    stopCamera();
+
+
+    // Remove previous preview.
+    if (previewUrlRef.current) {
+
+      URL.revokeObjectURL(
+        previewUrlRef.current
+      );
+
+      previewUrlRef.current =
+        null;
+    }
+
+
+    setCameraPreview(null);
+    setCameraImage(null);
+    setError("");
+
+
+    // Start camera again.
+    await startCamera();
+  };
+
+
+  // ------------------------------------------------------------
+  // Attach stream after the video element is rendered
+  // ------------------------------------------------------------
+
+  useEffect(() => {
+
+    if (!cameraActive) {
+      return;
+    }
+
+    const video =
+      videoRef.current;
+
+    const stream =
+      streamRef.current;
+
+    if (!video || !stream) {
+      return;
+    }
+
+    video.srcObject = stream;
+    video.muted = true;
+    video.playsInline = true;
+
+    const handleLoadedMetadata = () => {
+
+      if (
+        video.videoWidth > 0 &&
+        video.videoHeight > 0
+      ) {
+
+        console.log(
+          "📷 Camera video ready:",
+          video.videoWidth,
+          "x",
+          video.videoHeight
+        );
+
+        setCameraReady(true);
+      }
+    };
+
+    video.addEventListener(
+      "loadedmetadata",
+      handleLoadedMetadata
+    );
+
+    video.play().catch((err) => {
+      console.error(
+        "Camera video playback failed:",
+        err
+      );
+    });
+
+    // Some browsers may already have dimensions
+    // before the event listener is attached.
+    if (
+      video.videoWidth > 0 &&
+      video.videoHeight > 0
+    ) {
+      setCameraReady(true);
+    }
+
+    return () => {
+      video.removeEventListener(
+        "loadedmetadata",
+        handleLoadedMetadata
+      );
+    };
+
+  }, [cameraActive]);
+
+
+  // ------------------------------------------------------------
+  // Cleanup camera
+  // ------------------------------------------------------------
+
+  useEffect(() => {
+
+    return () => {
+
+      // Stop camera.
+      if (streamRef.current) {
+
+        streamRef.current
+          .getTracks()
+          .forEach((track) => {
+            track.stop();
+          });
+
+        streamRef.current = null;
+      }
+
+
+      // Cleanup preview URL.
+      if (previewUrlRef.current) {
+
+        URL.revokeObjectURL(
+          previewUrlRef.current
+        );
+
+        previewUrlRef.current =
+          null;
+      }
+
+    };
+
+  }, []);
+
+
+  // ------------------------------------------------------------
+  // Submit assessment
+  // ------------------------------------------------------------
+
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>
   ) => {
+
     event.preventDefault();
 
     setError("");
     setResult(null);
+
 
     if (
       sleepQuality === null ||
@@ -114,80 +579,114 @@ function DailyCheckIn() {
       energyLevel === null ||
       socialInteraction === null
     ) {
+
       setError(
         "Please complete all wellbeing ratings before submitting."
       );
+
       return;
     }
 
-    const sleep = Number(sleepHours);
-    const exercise = Number(exerciseMinutes);
-    const screen = Number(screenTime);
-    const study = Number(studyHours);
+
+    const sleep =
+      Number(sleepHours);
+
+    const exercise =
+      Number(exerciseMinutes);
+
+    const screen =
+      Number(screenTime);
+
+    const study =
+      Number(studyHours);
+
 
     if (
       !Number.isFinite(sleep) ||
       sleep < 3 ||
       sleep > 9
     ) {
+
       setError(
         "Sleep duration should be between 3 and 9 hours."
       );
+
       return;
     }
+
 
     if (
       !Number.isFinite(exercise) ||
       exercise < 0 ||
       exercise > 90
     ) {
+
       setError(
         "Exercise duration should be between 0 and 90 minutes."
       );
+
       return;
     }
+
 
     if (
       !Number.isFinite(screen) ||
       screen < 0 ||
       screen > 24
     ) {
+
       setError(
         "Screen time should be between 0 and 24 hours."
       );
+
       return;
     }
+
 
     if (
       !Number.isFinite(study) ||
       study < 2 ||
       study > 12
     ) {
+
       setError(
         "Study hours should be between 2 and 12 hours."
       );
+
       return;
     }
 
+
     if (!journalText.trim()) {
+
       setError(
         "Please write a short reflection before submitting."
       );
+
       return;
     }
 
+
     try {
+
       setSubmitting(true);
 
+
       const token =
-        localStorage.getItem("access_token");
+        localStorage.getItem(
+          "access_token"
+        );
+
 
       if (!token) {
         logout();
         return;
       }
 
-      const formData = new FormData();
+
+      const formData =
+        new FormData();
+
 
       formData.append(
         "sleep_hours",
@@ -244,7 +743,13 @@ function DailyCheckIn() {
         journalText.trim()
       );
 
+
+      // --------------------------------------------------------
+      // Voice
+      // --------------------------------------------------------
+
       if (voiceAudio) {
+
         formData.append(
           "voice_audio",
           voiceAudio,
@@ -257,11 +762,41 @@ function DailyCheckIn() {
           "bytes",
           voiceAudio.type
         );
+
       } else {
+
         console.log(
           "🎙️ No voice audio recorded."
         );
       }
+
+
+      // --------------------------------------------------------
+      // Facial image
+      // --------------------------------------------------------
+
+      if (cameraImage) {
+
+        formData.append(
+          "facial_image",
+          cameraImage,
+          "facial_capture.jpg"
+        );
+
+        console.log(
+          "📷 Sending facial image:",
+          cameraImage.size,
+          "bytes",
+          cameraImage.type
+        );
+
+      } else {
+
+        console.log(
+          "📷 No facial image captured."
+        );
+      }
+
 
       const response =
         await api.post(
@@ -275,40 +810,57 @@ function DailyCheckIn() {
           }
         );
 
+
       console.log(
         "✅ Assessment submitted:",
         response.data
       );
 
-      setResult(response.data);
+
+      setResult(
+        response.data
+      );
 
     } catch (err: any) {
+
       console.error(
         "Assessment submission failed:",
         err
       );
 
+
       if (
         err.response?.status === 401
       ) {
+
         logout();
         return;
       }
 
+
       setError(
         err.response?.data?.error ||
-          "Unable to submit your check-in. Please try again."
+        "Unable to submit your check-in. Please try again."
       );
 
     } finally {
+
       setSubmitting(false);
     }
   };
 
+
+  // ------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------
+
   return (
+
     <div className="dashboard-page">
 
+
       {/* Mobile menu */}
+
       <button
         className="mobile-menu-button"
         onClick={() =>
@@ -319,17 +871,23 @@ function DailyCheckIn() {
         <Menu size={22} />
       </button>
 
+
       {/* Overlay */}
+
       {sidebarOpen && (
+
         <div
           className="sidebar-overlay"
           onClick={() =>
             setSidebarOpen(false)
           }
         />
+
       )}
 
+
       {/* Sidebar */}
+
       <aside
         className={`dashboard-sidebar ${
           sidebarOpen
@@ -337,6 +895,7 @@ function DailyCheckIn() {
             : ""
         }`}
       >
+
         <div className="sidebar-top">
 
           <div className="sidebar-brand">
@@ -357,6 +916,7 @@ function DailyCheckIn() {
 
           </div>
 
+
           <nav className="sidebar-navigation">
 
             <Link
@@ -372,6 +932,7 @@ function DailyCheckIn() {
               </span>
             </Link>
 
+
             <Link
               to="/check-in"
               className="sidebar-item active"
@@ -385,6 +946,7 @@ function DailyCheckIn() {
               </span>
             </Link>
 
+
             <Link
               to="/progress"
               className="sidebar-item"
@@ -397,6 +959,7 @@ function DailyCheckIn() {
                 Progress
               </span>
             </Link>
+
 
             <Link
               to="/profile"
@@ -415,6 +978,7 @@ function DailyCheckIn() {
 
         </div>
 
+
         <div className="sidebar-bottom">
 
           <Link
@@ -430,6 +994,7 @@ function DailyCheckIn() {
             </span>
           </Link>
 
+
           <button
             className="sidebar-item sidebar-button"
             type="button"
@@ -442,7 +1007,9 @@ function DailyCheckIn() {
                 ? "Light Mode"
                 : "Dark Mode"}
             </span>
+
           </button>
+
 
           <button
             className="sidebar-item sidebar-button logout-item"
@@ -454,13 +1021,18 @@ function DailyCheckIn() {
             <span>
               Logout
             </span>
+
           </button>
 
         </div>
+
       </aside>
 
+
       {/* Main */}
+
       <main className="dashboard-main checkin-main">
+
 
         <header className="checkin-header">
 
@@ -483,11 +1055,13 @@ function DailyCheckIn() {
 
         </header>
 
+
         {/* =========================
             RESULT
         ========================== */}
 
         {result && (
+
           <section className="assessment-result">
 
             <div className="result-icon">
@@ -501,6 +1075,7 @@ function DailyCheckIn() {
             <h2>
               Your wellbeing snapshot
             </h2>
+
 
             <div className="result-score">
 
@@ -516,6 +1091,7 @@ function DailyCheckIn() {
 
             </div>
 
+
             <p className="result-description">
               This result is an awareness
               indicator based on your
@@ -523,11 +1099,61 @@ function DailyCheckIn() {
               It is not a medical diagnosis.
             </p>
 
+
+            {/* =========================
+                FACIAL ANALYSIS
+            ========================== */}
+
+            {result.facial_used && (
+              <div className="voice-analysis-status">
+
+                <div className="voice-analysis-icon">
+                  <Camera size={20} />
+                </div>
+
+                <div className="voice-analysis-content">
+
+                  <strong>
+                    Facial emotion captured
+                  </strong>
+
+                  <p>
+                    Detected emotion:{" "}
+                    <strong>
+                      {result.facial_emotion}
+                    </strong>
+                  </p>
+
+                  {result.facial_confidence !== null &&
+                    result.facial_confidence !== undefined && (
+                      <small>
+                        Model confidence:{" "}
+                        {(
+                          result.facial_confidence *
+                          100
+                        ).toFixed(1)}
+                        %
+                      </small>
+                    )}
+
+                  <small>
+                    Facial emotion is used only
+                    as an auxiliary affective
+                    signal. It is not a diagnosis.
+                  </small>
+
+                </div>
+
+              </div>
+            )}
+
+
             {/* =========================
                 VOICE ANALYSIS
             ========================== */}
 
             {result.voice_used && (
+
               <div className="voice-analysis-status">
 
                 <div className="voice-analysis-icon">
@@ -556,34 +1182,43 @@ function DailyCheckIn() {
                 </div>
 
               </div>
+
             )}
+
 
             {/* Recommendations */}
 
             {result.recommendations &&
               result.recommendations.length >
                 0 && (
-                <div className="recommendations">
 
-                  <h3>
-                    Suggestions
-                  </h3>
+              <div className="recommendations">
 
-                  <ul>
-                    {result.recommendations.map(
-                      (
-                        recommendation,
-                        index
-                      ) => (
-                        <li key={index}>
-                          {recommendation}
-                        </li>
-                      )
-                    )}
-                  </ul>
+                <h3>
+                  Suggestions
+                </h3>
 
-                </div>
-              )}
+                <ul>
+
+                  {result.recommendations.map(
+                    (
+                      recommendation,
+                      index
+                    ) => (
+
+                      <li key={index}>
+                        {recommendation}
+                      </li>
+
+                    )
+                  )}
+
+                </ul>
+
+              </div>
+
+            )}
+
 
             <button
               className="primary-dashboard-button"
@@ -596,19 +1231,24 @@ function DailyCheckIn() {
             </button>
 
           </section>
+
         )}
+
 
         {/* =========================
             FORM
         ========================== */}
 
         {!result && (
+
           <form
             className="checkin-form"
             onSubmit={handleSubmit}
           >
 
+
             {error && (
+
               <div className="checkin-error">
 
                 <AlertCircle size={20} />
@@ -618,7 +1258,9 @@ function DailyCheckIn() {
                 </span>
 
               </div>
+
             )}
+
 
             {/* Sleep */}
 
@@ -648,6 +1290,7 @@ function DailyCheckIn() {
                 </div>
 
               </div>
+
 
               <div className="checkin-fields">
 
@@ -687,6 +1330,7 @@ function DailyCheckIn() {
 
                 </div>
 
+
                 <RatingSelector
                   label="How would you rate your sleep quality?"
                   value={sleepQuality}
@@ -705,6 +1349,7 @@ function DailyCheckIn() {
               </div>
 
             </section>
+
 
             {/* Mind & Mood */}
 
@@ -735,6 +1380,7 @@ function DailyCheckIn() {
 
               </div>
 
+
               <div className="checkin-fields">
 
                 <RatingSelector
@@ -749,6 +1395,7 @@ function DailyCheckIn() {
                     "Very good",
                   ]}
                 />
+
 
                 <RatingSelector
                   label="How stressed have you been feeling?"
@@ -765,6 +1412,7 @@ function DailyCheckIn() {
                   ]}
                 />
 
+
                 <RatingSelector
                   label="How much academic pressure are you experiencing?"
                   value={academicPressure}
@@ -779,6 +1427,7 @@ function DailyCheckIn() {
                     "Very high",
                   ]}
                 />
+
 
                 <RatingSelector
                   label="How would you rate your energy?"
@@ -798,6 +1447,7 @@ function DailyCheckIn() {
               </div>
 
             </section>
+
 
             {/* Lifestyle */}
 
@@ -828,6 +1478,7 @@ function DailyCheckIn() {
 
               </div>
 
+
               <div className="checkin-fields">
 
                 <RatingSelector
@@ -847,6 +1498,7 @@ function DailyCheckIn() {
                   ]}
                 />
 
+
                 <div className="input-grid">
 
                   <NumberField
@@ -865,6 +1517,7 @@ function DailyCheckIn() {
                     step="1"
                   />
 
+
                   <NumberField
                     id="screen-time"
                     label="Screen time"
@@ -878,6 +1531,7 @@ function DailyCheckIn() {
                     max="24"
                     step="0.1"
                   />
+
 
                   <NumberField
                     id="study-hours"
@@ -898,6 +1552,7 @@ function DailyCheckIn() {
               </div>
 
             </section>
+
 
             {/* Reflection */}
 
@@ -928,6 +1583,7 @@ function DailyCheckIn() {
 
               </div>
 
+
               <div className="checkin-field">
 
                 <label htmlFor="journal">
@@ -935,6 +1591,7 @@ function DailyCheckIn() {
                   to share about how you're
                   feeling?
                 </label>
+
 
                 <VoiceInput
                   existingText={journalText}
@@ -945,6 +1602,7 @@ function DailyCheckIn() {
                     setVoiceAudio(audioBlob)
                   }
                 />
+
 
                 <textarea
                   id="journal"
@@ -958,6 +1616,7 @@ function DailyCheckIn() {
                   }
                 />
 
+
                 <small>
                   Your reflection is saved with
                   your assessment.
@@ -966,6 +1625,143 @@ function DailyCheckIn() {
               </div>
 
             </section>
+
+
+            {/* =========================
+                Facial Emotion
+            ========================== */}
+
+            <section className="checkin-card">
+
+              <div className="checkin-card-header">
+
+                <div className="checkin-section-icon">
+                  <Camera size={21} />
+                </div>
+
+                <div>
+
+                  <span>
+                    05
+                  </span>
+
+                  <h2>
+                    Facial Emotion
+                  </h2>
+
+                  <p>
+                    Optionally capture a facial
+                    image for an additional
+                    affective signal.
+                  </p>
+
+                </div>
+
+              </div>
+
+
+              <div className="checkin-field">
+
+                {!cameraActive &&
+                  !cameraPreview && (
+
+                  <button
+                    type="button"
+                    className="primary-dashboard-button"
+                    onClick={startCamera}
+                  >
+                    <Camera size={18} />
+                    Enable Camera
+                  </button>
+
+                )}
+
+
+                {cameraActive && (
+
+                  <div>
+
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      style={{
+                        width: "100%",
+                        maxWidth: "480px",
+                        borderRadius: "16px",
+                        display: "block",
+                        marginBottom: "16px",
+                        background: "#000",
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      className="primary-dashboard-button"
+                      onClick={captureFace}
+                      disabled={!cameraReady}
+                    >
+                      <Camera size={18} />
+                      {cameraReady
+                        ? "Capture Face"
+                        : "Starting Camera..."}
+                    </button>
+
+                  </div>
+
+                )}
+
+
+                {cameraPreview && (
+
+                  <div>
+
+                    <img
+                      src={cameraPreview}
+                      alt="Captured facial preview"
+                      style={{
+                        width: "100%",
+                        maxWidth: "480px",
+                        borderRadius: "16px",
+                        display: "block",
+                        marginBottom: "16px",
+                      }}
+                    />
+
+                    <button
+                      type="button"
+                      className="primary-dashboard-button"
+                      onClick={retakeFace}
+                    >
+                      <Camera size={18} />
+                      Retake Photo
+                    </button>
+
+                  </div>
+
+                )}
+
+
+                <canvas
+                  ref={canvasRef}
+                  style={{
+                    display: "none",
+                  }}
+                />
+
+
+                <small>
+                  The captured image is used for
+                  facial emotion analysis and is
+                  not stored as part of the
+                  assessment record.
+                </small>
+
+              </div>
+
+            </section>
+
 
             {/* Submit */}
 
@@ -985,6 +1781,7 @@ function DailyCheckIn() {
 
               </div>
 
+
               <button
                 className="submit-checkin-button"
                 type="submit"
@@ -992,20 +1789,25 @@ function DailyCheckIn() {
               >
 
                 {submitting ? (
+
                   <>
                     <Activity size={18} />
                     Analyzing...
                   </>
+
                 ) : (
+
                   <>
                     <Send size={18} />
                     Analyze my check-in
                   </>
+
                 )}
 
               </button>
 
             </div>
+
 
             <p className="assessment-disclaimer">
               Clarity is designed for awareness
@@ -1015,41 +1817,57 @@ function DailyCheckIn() {
             </p>
 
           </form>
+
         )}
 
       </main>
 
     </div>
+
   );
 }
+
 
 /*
  * 1–5 rating selector.
  */
+
 interface RatingSelectorProps {
+
   label: string;
+
   value: number | null;
-  onChange: (value: number) => void;
+
+  onChange:
+    (value: number) => void;
+
   labels: string[];
 }
 
+
 function RatingSelector({
+
   label,
   value,
   onChange,
   labels,
+
 }: RatingSelectorProps) {
+
   return (
+
     <div className="rating-field">
 
       <label>
         {label}
       </label>
 
+
       <div className="rating-options">
 
         {[1, 2, 3, 4, 5].map(
           (number) => (
+
             <button
               key={number}
               type="button"
@@ -1061,8 +1879,11 @@ function RatingSelector({
               onClick={() =>
                 onChange(number)
               }
-              aria-label={`${number} - ${labels[number - 1]}`}
+              aria-label={
+                `${number} - ${labels[number - 1]}`
+              }
             >
+
               <strong>
                 {number}
               </strong>
@@ -1072,31 +1893,47 @@ function RatingSelector({
               </span>
 
             </button>
+
           )
         )}
 
       </div>
 
     </div>
+
   );
 }
+
 
 /*
  * Numerical input.
  */
+
 interface NumberFieldProps {
+
   id: string;
+
   label: string;
+
   value: string;
-  onChange: (value: string) => void;
+
+  onChange:
+    (value: string) => void;
+
   placeholder: string;
+
   suffix: string;
+
   min: string;
+
   max: string;
+
   step: string;
 }
 
+
 function NumberField({
+
   id,
   label,
   value,
@@ -1106,13 +1943,17 @@ function NumberField({
   min,
   max,
   step,
+
 }: NumberFieldProps) {
+
   return (
+
     <div className="checkin-field">
 
       <label htmlFor={id}>
         {label}
       </label>
+
 
       <div className="number-input-row">
 
@@ -1138,7 +1979,9 @@ function NumberField({
       </div>
 
     </div>
+
   );
 }
+
 
 export default DailyCheckIn;

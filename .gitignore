@@ -1,24 +1,44 @@
+# ================================
 # Python
+# ================================
 backend/venv/
+.venv/
 __pycache__/
 *.pyc
 
-# Environment
+# ================================
+# Environment / Secrets
+# ================================
 backend/.env
 
+# ================================
 # Database migrations
+# ================================
 backend/migrations/
 
+# ================================
 # Node
+# ================================
 frontend/node_modules/
 
+# ================================
 # OS
+# ================================
 .DS_Store
 Thumbs.db
 
+# ================================
 # Jupyter
+# ================================
 .ipynb_checkpoints/
 
-# Python cache
-__pycache__/
-*.pyc
+# ================================
+# ML datasets
+# ================================
+backend/ml/dataset/fer2013/
+
+# ================================
+# Temporary voice test files
+# ================================
+backend/voice_test.webm
+backend/voice_test.wav

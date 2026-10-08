@@ -13,6 +13,7 @@ from .services import (
 )
 from .nlp_service import predict_nlp_risk
 from .voice_service import extract_voice_features
+from .facial_service import predict_facial_emotion
 
 from app.extensions import db
 from app.models.assessment import Assessment
@@ -37,13 +38,6 @@ def submit_assessment():
 
     # --------------------------------------------------------
     # Read assessment data
-    # --------------------------------------------------------
-    #
-    # The frontend will send multipart/form-data because
-    # the request now contains both text fields and audio.
-    #
-    # We also keep JSON support so the existing API does not
-    # suddenly stop working.
     # --------------------------------------------------------
 
     if request.content_type and request.content_type.startswith(
@@ -76,7 +70,9 @@ def submit_assessment():
     # --------------------------------------------------------
 
     for field in required_fields:
+
         if data.get(field) is None:
+
             return jsonify({
                 "error": f"{field} is required"
             }), 400
@@ -84,13 +80,9 @@ def submit_assessment():
     # --------------------------------------------------------
     # Convert numerical form values
     # --------------------------------------------------------
-    #
-    # multipart/form-data sends all form values as strings.
-    # Convert them back to numbers before sending them to
-    # the ML model.
-    # --------------------------------------------------------
 
     try:
+
         data["sleep_hours"] = float(
             data["sleep_hours"]
         )
@@ -132,20 +124,13 @@ def submit_assessment():
         )
 
     except (TypeError, ValueError):
+
         return jsonify({
             "error": "Invalid assessment values."
         }), 400
 
     # --------------------------------------------------------
     # Voice processing
-    # --------------------------------------------------------
-    #
-    # Voice is currently processed only for feature
-    # extraction.
-    #
-    # These features are NOT included in the risk score yet
-    # because a trained and validated voice ML model has not
-    # been integrated.
     # --------------------------------------------------------
 
     voice_features = None
@@ -161,6 +146,7 @@ def submit_assessment():
         output_path = None
 
         try:
+
             # ------------------------------------------------
             # Create temporary files
             # ------------------------------------------------
@@ -184,7 +170,7 @@ def submit_assessment():
                 output_path = output_temp.name
 
             # ------------------------------------------------
-            # Convert WebM → WAV using FFmpeg
+            # Convert WebM → WAV
             # ------------------------------------------------
 
             ffmpeg_command = [
@@ -207,6 +193,7 @@ def submit_assessment():
             )
 
             if conversion.returncode != 0:
+
                 raise RuntimeError(
                     "Audio conversion failed."
                 )
@@ -252,9 +239,6 @@ def submit_assessment():
                 exc
             )
 
-            # Voice failure should not prevent the
-            # structured + NLP assessment from working.
-
             voice_features = None
             voice_used = False
 
@@ -264,15 +248,72 @@ def submit_assessment():
             # Delete temporary audio files
             # ------------------------------------------------
 
-            if input_path and os.path.exists(
+            if (
                 input_path
+                and os.path.exists(input_path)
             ):
+
                 os.remove(input_path)
 
-            if output_path and os.path.exists(
+            if (
                 output_path
+                and os.path.exists(output_path)
             ):
+
                 os.remove(output_path)
+
+    # --------------------------------------------------------
+    # Facial emotion processing
+    # --------------------------------------------------------
+
+    facial_emotion = None
+    facial_confidence = None
+    facial_used = False
+
+    facial_file = request.files.get(
+        "facial_image"
+    )
+
+    if facial_file and facial_file.filename:
+
+        try:
+
+            facial_result = (
+                predict_facial_emotion(
+                    facial_file
+                )
+            )
+
+            facial_emotion = (
+                facial_result["emotion"]
+            )
+
+            facial_confidence = (
+                facial_result["confidence"]
+            )
+
+            facial_used = True
+
+            print(
+                "📷 Facial emotion detected:",
+                facial_emotion
+            )
+
+            print(
+                "📷 Facial confidence:",
+                facial_confidence
+            )
+
+        except Exception as exc:
+
+            print(
+                "📷 Facial processing error:",
+                exc
+            )
+
+            facial_emotion = None
+            facial_confidence = None
+            facial_used = False
 
     # --------------------------------------------------------
     # Structured ML prediction
@@ -297,13 +338,14 @@ def submit_assessment():
 
     # --------------------------------------------------------
     # Risk fusion
-    # --------------------------------------------------------
     #
-    # Structured model is the primary signal.
-    # NLP is used as a supporting signal only when
-    # the journal passes validation.
+    # Structured model = primary signal
+    # NLP = supporting signal
+    # Facial emotion = auxiliary affective signal
     #
-    # Voice is intentionally NOT included yet.
+    # IMPORTANT:
+    # Facial emotion is NOT converted into a
+    # depression/stress probability.
     # --------------------------------------------------------
 
     if nlp_result["valid"]:
@@ -322,9 +364,6 @@ def submit_assessment():
     else:
 
         nlp_risk_score = None
-
-        # If journal text is invalid/low-information,
-        # rely entirely on the structured assessment.
 
         final_risk_score = (
             structured_risk_score
@@ -356,42 +395,64 @@ def submit_assessment():
     # --------------------------------------------------------
 
     assessment = Assessment(
+
         user_id=identity,
+
         sleep_hours=data.get(
             "sleep_hours"
         ),
+
         sleep_quality=data.get(
             "sleep_quality"
         ),
+
         stress_level=data.get(
             "stress_level"
         ),
+
         academic_pressure=data.get(
             "academic_pressure"
         ),
+
         mood=data.get(
             "mood"
         ),
+
         energy_level=data.get(
             "energy_level"
         ),
+
         social_interaction=data.get(
             "social_interaction"
         ),
+
         exercise_minutes=data.get(
             "exercise_minutes"
         ),
+
         screen_time=data.get(
             "screen_time"
         ),
+
         study_hours=data.get(
             "study_hours"
         ),
+
         journal_text=journal_text,
-        prediction_score=final_risk_score
+
+        prediction_score=final_risk_score,
+
+        facial_emotion=facial_emotion,
+
+        facial_confidence=facial_confidence,
+
+        facial_used=facial_used,
     )
 
-    db.session.add(assessment)
+    db.session.add(
+        assessment
+    )
+
     db.session.commit()
 
     # --------------------------------------------------------
@@ -403,7 +464,7 @@ def submit_assessment():
         "message":
             "Assessment submitted successfully",
 
-        # Final multimodal result
+        # Final risk result
         "prediction":
             structured_prediction,
 
@@ -416,13 +477,14 @@ def submit_assessment():
         "risk_level":
             risk_level,
 
-        # Individual model signals
+        # Structured signal
         "structured_risk_score":
             round(
                 structured_risk_score * 100,
                 2
             ),
 
+        # NLP signal
         "nlp_risk_score":
             (
                 round(
@@ -436,6 +498,23 @@ def submit_assessment():
         "nlp_used":
             nlp_used,
 
+        # Facial signal
+        "facial_used":
+            facial_used,
+
+        "facial_emotion":
+            facial_emotion,
+
+        "facial_confidence":
+            (
+                round(
+                    facial_confidence,
+                    4
+                )
+                if facial_confidence is not None
+                else None
+            ),
+
         # Voice information
         "voice_used":
             voice_used,
@@ -443,12 +522,13 @@ def submit_assessment():
         "voice_features":
             voice_features,
 
-        # NLP validation information
+        # NLP validation
         "nlp_validation":
             nlp_result.get(
                 "validation"
             ),
 
+        # Recommendations
         "recommendations":
             recommendations
 
@@ -523,11 +603,26 @@ def assessment_history():
             "journal_text":
                 assessment.journal_text,
 
+            # Facial information
+            "facial_emotion":
+                assessment.facial_emotion,
+
+            "facial_confidence":
+                assessment.facial_confidence,
+
+            "facial_used":
+                assessment.facial_used,
+
             "created_at":
                 assessment.created_at.isoformat()
         })
 
     return jsonify({
-        "count": len(result),
-        "assessments": result
+
+        "count":
+            len(result),
+
+        "assessments":
+            result
+
     }), 200

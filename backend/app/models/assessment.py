@@ -19,7 +19,18 @@ class Assessment(db.Model):
         back_populates="assessments"
     )
 
-    prediction_score = db.Column(db.Float, nullable=False)
+    # ------------------------------------------------------------
+    # Final multimodal prediction
+    # ------------------------------------------------------------
+
+    prediction_score = db.Column(
+        db.Float,
+        nullable=False
+    )
+
+    # ------------------------------------------------------------
+    # Structured assessment inputs
+    # ------------------------------------------------------------
 
     sleep_hours = db.Column(db.Float, nullable=False)
     sleep_quality = db.Column(db.Integer, nullable=False)
@@ -36,7 +47,38 @@ class Assessment(db.Model):
     screen_time = db.Column(db.Float, nullable=False)
     study_hours = db.Column(db.Float, nullable=False)
 
-    journal_text = db.Column(db.Text, nullable=False)
+    # ------------------------------------------------------------
+    # Journal
+    # ------------------------------------------------------------
+
+    journal_text = db.Column(
+        db.Text,
+        nullable=False
+    )
+
+    # ------------------------------------------------------------
+    # Facial emotion signal
+    # ------------------------------------------------------------
+
+    facial_emotion = db.Column(
+        db.String(50),
+        nullable=True
+    )
+
+    facial_confidence = db.Column(
+        db.Float,
+        nullable=True
+    )
+
+    facial_used = db.Column(
+        db.Boolean,
+        nullable=False,
+        default=False
+    )
+
+    # ------------------------------------------------------------
+    # Timestamp
+    # ------------------------------------------------------------
 
     created_at = db.Column(
         db.DateTime,
