@@ -1,7 +1,3 @@
-import os
-import subprocess
-import tempfile
-
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -12,22 +8,10 @@ from .services import (
     generate_recommendations,
 )
 from .nlp_service import predict_nlp_risk
-from .voice_service import extract_voice_features
 from .facial_service import predict_facial_emotion
 
 from app.extensions import db
 from app.models.assessment import Assessment
-
-
-# ------------------------------------------------------------
-# FFmpeg configuration
-# ------------------------------------------------------------
-
-FFMPEG_PATH = (
-    r"C:\Users\ADMIN\AppData\Local\Microsoft\WinGet"
-    r"\Packages\Gyan.FFmpeg.Shared_Microsoft.Winget.Source_8wekyb3d8bbwe"
-    r"\ffmpeg-9.0.2-full_build-shared\bin\ffmpeg.exe"
-)
 
 
 @assessment_bp.route("/", methods=["POST"])
@@ -128,139 +112,6 @@ def submit_assessment():
         return jsonify({
             "error": "Invalid assessment values."
         }), 400
-
-    # --------------------------------------------------------
-    # Voice processing
-    # --------------------------------------------------------
-
-    voice_features = None
-    voice_used = False
-
-    voice_file = request.files.get(
-        "voice_audio"
-    )
-
-    if voice_file and voice_file.filename:
-
-        input_path = None
-        output_path = None
-
-        try:
-
-            # ------------------------------------------------
-            # Create temporary files
-            # ------------------------------------------------
-
-            with tempfile.NamedTemporaryFile(
-                suffix=".webm",
-                delete=False
-            ) as input_temp:
-
-                voice_file.save(
-                    input_temp.name
-                )
-
-                input_path = input_temp.name
-
-            with tempfile.NamedTemporaryFile(
-                suffix=".wav",
-                delete=False
-            ) as output_temp:
-
-                output_path = output_temp.name
-
-            # ------------------------------------------------
-            # Convert WebM → WAV
-            # ------------------------------------------------
-
-            ffmpeg_command = [
-                FFMPEG_PATH,
-                "-y",
-                "-i",
-                input_path,
-                "-ac",
-                "1",
-                "-ar",
-                "16000",
-                output_path,
-            ]
-
-            conversion = subprocess.run(
-                ffmpeg_command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-
-            if conversion.returncode != 0:
-
-                raise RuntimeError(
-                    "Audio conversion failed."
-                )
-
-            # ------------------------------------------------
-            # Read converted WAV
-            # ------------------------------------------------
-
-            with open(
-                output_path,
-                "rb"
-            ) as audio_file:
-
-                wav_bytes = (
-                    audio_file.read()
-                )
-
-            # ------------------------------------------------
-            # Extract acoustic features
-            # ------------------------------------------------
-
-            voice_features = (
-                extract_voice_features(
-                    wav_bytes
-                )
-            )
-
-            voice_used = True
-
-            print(
-                "🎙️ Voice features extracted successfully."
-            )
-
-            print(
-                "🎙️ Voice features:",
-                voice_features
-            )
-
-        except Exception as exc:
-
-            print(
-                "🎙️ Voice processing error:",
-                exc
-            )
-
-            voice_features = None
-            voice_used = False
-
-        finally:
-
-            # ------------------------------------------------
-            # Delete temporary audio files
-            # ------------------------------------------------
-
-            if (
-                input_path
-                and os.path.exists(input_path)
-            ):
-
-                os.remove(input_path)
-
-            if (
-                output_path
-                and os.path.exists(output_path)
-            ):
-
-                os.remove(output_path)
 
     # --------------------------------------------------------
     # Facial emotion processing
@@ -514,13 +365,6 @@ def submit_assessment():
                 if facial_confidence is not None
                 else None
             ),
-
-        # Voice information
-        "voice_used":
-            voice_used,
-
-        "voice_features":
-            voice_features,
 
         # NLP validation
         "nlp_validation":

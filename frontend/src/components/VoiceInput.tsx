@@ -4,45 +4,43 @@ import { Mic, MicOff, Square } from "lucide-react";
 interface VoiceInputProps {
   onTranscript: (text: string) => void;
   existingText?: string;
-  onAudioRecorded?: (audioBlob: Blob) => void;
 }
 
 function VoiceInput({
   onTranscript,
   existingText = "",
-  onAudioRecorded,
 }: VoiceInputProps) {
   const [isListening, setIsListening] = useState(false);
   const [supported, setSupported] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
-
   const existingTextRef = useRef(existingText);
   const onTranscriptRef = useRef(onTranscript);
 
-  // Audio recording references
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  // Keep the latest journal text available
+  // Keep the latest journal text available.
   useEffect(() => {
     existingTextRef.current = existingText;
   }, [existingText]);
 
-  // Keep the latest transcript callback available
+  // Keep the latest callback available.
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
   }, [onTranscript]);
 
+  // Initialize speech recognition.
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
+      console.error(
+        "VOICE: Speech recognition is not supported by this browser."
+      );
+
       setSupported(false);
       return;
     }
@@ -50,78 +48,125 @@ function VoiceInput({
     const recognition = new SpeechRecognition();
 
     recognition.continuous = true;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
     recognition.lang = "en-IN";
+    recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
-      console.log("🎤 Speech recognition started");
+      console.log("VOICE: Recognition started");
 
       isListeningRef.current = true;
       setIsListening(true);
       setErrorMessage("");
+      setStatusMessage("Listening... Speak clearly.");
+    };
+
+    recognition.onaudiostart = () => {
+      console.log("VOICE: Audio capture started");
+    };
+
+    recognition.onspeechstart = () => {
+      console.log("VOICE: Speech detected");
+      setStatusMessage("Speech detected... processing.");
+    };
+
+    recognition.onspeechend = () => {
+      console.log("VOICE: Speech ended");
     };
 
     recognition.onresult = (event: any) => {
-      let transcript = "";
+      console.log("VOICE: Result event received", event);
+
+      let finalTranscript = "";
+      let interimTranscript = "";
 
       for (
         let i = event.resultIndex;
         i < event.results.length;
         i++
       ) {
-        if (event.results[i].isFinal) {
-          transcript += event.results[i][0].transcript;
+        const result = event.results[i];
+        const transcript = result[0]?.transcript ?? "";
+
+        if (result.isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
         }
       }
 
-      if (transcript.trim()) {
-        console.log("📝 Transcript:", transcript);
+      // Show temporary recognition results while speaking.
+      if (interimTranscript.trim()) {
+        console.log("VOICE: Interim transcript:", interimTranscript);
+        setStatusMessage(`Recognizing: ${interimTranscript}`);
+      }
 
-        const currentText =
-          existingTextRef.current.trim();
+      // Add only finalized speech to the journal.
+      if (finalTranscript.trim()) {
+        const recognizedText = finalTranscript.trim();
+
+        console.log("VOICE: Final transcript:", recognizedText);
+
+        const currentText = existingTextRef.current.trim();
 
         const newText = currentText
-          ? `${currentText} ${transcript.trim()}`
-          : transcript.trim();
+          ? `${currentText} ${recognizedText}`
+          : recognizedText;
 
         existingTextRef.current = newText;
-
         onTranscriptRef.current(newText);
+
+        setStatusMessage("Speech added to your journal.");
       }
     };
 
     recognition.onerror = (event: any) => {
-      console.error(
-        "🎤 Speech recognition error:",
-        event.error
-      );
+      console.error("VOICE: Recognition error:", event.error);
 
       isListeningRef.current = false;
       setIsListening(false);
 
-      if (event.error === "not-allowed") {
-        setErrorMessage(
-          "Microphone permission was denied. Please allow microphone access in Chrome."
-        );
-      } else if (event.error === "no-speech") {
-        setErrorMessage(
-          "No speech detected. Please try speaking again."
-        );
-      } else if (event.error === "network") {
-        setErrorMessage(
-          "Speech recognition needs an internet connection."
-        );
-      } else if (event.error === "aborted") {
-        setErrorMessage("");
-      } else {
-        setErrorMessage(
-          `Speech recognition error: ${event.error}`
-        );
+      switch (event.error) {
+        case "not-allowed":
+        case "service-not-allowed":
+          setErrorMessage(
+            "Microphone or speech recognition permission was denied. Check Chrome site permissions."
+          );
+          break;
+
+        case "no-speech":
+          setErrorMessage(
+            "No speech was detected. Check your microphone and try speaking louder."
+          );
+          break;
+
+        case "network":
+          setErrorMessage(
+            "Speech recognition encountered a network error. Check your internet connection and try again."
+          );
+          break;
+
+        case "audio-capture":
+          setErrorMessage(
+            "No microphone audio is available. Check your microphone settings."
+          );
+          break;
+
+        case "aborted":
+          setErrorMessage("");
+          break;
+
+        default:
+          setErrorMessage(
+            `Speech recognition failed: ${event.error}`
+          );
       }
+
+      setStatusMessage("");
     };
 
     recognition.onend = () => {
-      console.log("🎤 Speech recognition ended");
+      console.log("VOICE: Recognition ended");
 
       isListeningRef.current = false;
       setIsListening(false);
@@ -131,287 +176,80 @@ function VoiceInput({
 
     return () => {
       try {
-        recognition.stop();
+        recognition.abort();
       } catch {
         // Recognition may already be stopped.
       }
 
-      if (mediaRecorderRef.current) {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch {
-          // Recorder may already be stopped.
-        }
-      }
-
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current
-          .getTracks()
-          .forEach((track) => track.stop());
-      }
-
       recognitionRef.current = null;
-      mediaRecorderRef.current = null;
-      mediaStreamRef.current = null;
       isListeningRef.current = false;
     };
   }, []);
 
-  /*
-   * Start recording the actual microphone audio.
-   *
-   * This audio will later be used for voice-feature
-   * extraction such as pitch, energy, pauses, MFCCs,
-   * speaking rate, etc.
-   */
-  const startAudioRecording = async () => {
-    try {
-      console.log(
-        "🎙️ Requesting microphone for audio analysis..."
-      );
-
-      if (
-        !navigator.mediaDevices ||
-        !navigator.mediaDevices.getUserMedia
-      ) {
-        throw new Error(
-          "Microphone recording is not supported."
-        );
-      }
-
-      const stream =
-        await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-
-      mediaStreamRef.current = stream;
-      audioChunksRef.current = [];
-
-      /*
-       * Use WebM/Opus when available.
-       * Chrome normally supports this format.
-       */
-      let options: MediaRecorderOptions = {};
-
-      if (
-        MediaRecorder.isTypeSupported(
-          "audio/webm;codecs=opus"
-        )
-      ) {
-        options = {
-          mimeType: "audio/webm;codecs=opus",
-        };
-      } else if (
-        MediaRecorder.isTypeSupported("audio/webm")
-      ) {
-        options = {
-          mimeType: "audio/webm",
-        };
-      }
-
-      const recorder = new MediaRecorder(
-        stream,
-        options
-      );
-
-      mediaRecorderRef.current = recorder;
-
-      recorder.ondataavailable = (event: BlobEvent) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      recorder.onerror = (event) => {
-        console.error(
-          "🎙️ MediaRecorder error:",
-          event
-        );
-      };
-
-      recorder.onstop = () => {
-        const audioBlob = new Blob(
-          audioChunksRef.current,
-          {
-            type:
-              recorder.mimeType ||
-              "audio/webm",
-          }
-        );
-
-        console.log(
-          "🎧 Audio recording created:",
-          audioBlob.size,
-          "bytes"
-        );
-
-        console.log(
-          "🎧 Audio type:",
-          audioBlob.type
-        );
-
-        /*
-         * Send the recorded audio to the parent
-         * component if it wants to use it.
-         */
-        if (onAudioRecorded) {
-          onAudioRecorded(audioBlob);
-        }
-
-        /*
-         * Release microphone resources.
-         */
-        stream
-          .getTracks()
-          .forEach((track) => track.stop());
-
-        mediaStreamRef.current = null;
-        mediaRecorderRef.current = null;
-        audioChunksRef.current = [];
-      };
-
-      recorder.start();
-
-      console.log(
-        "🎙️ Audio recording started"
-      );
-    } catch (error) {
-      console.error(
-        "🎙️ Audio recording error:",
-        error
-      );
-
-      setErrorMessage(
-        "Unable to access the microphone for voice analysis."
-      );
-
-      throw error;
-    }
-  };
-
-  /*
-   * Stop the actual audio recorder.
-   */
-  const stopAudioRecording = () => {
-    console.log(
-      "🛑 Stopping audio recording..."
-    );
-
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      mediaRecorderRef.current.stop();
-    }
-  };
-
-  /*
-   * Start both:
-   *
-   * 1. SpeechRecognition → journal text
-   * 2. MediaRecorder → audio Blob
-   *
-   * Speech recognition is started first so the existing
-   * speech-to-text functionality remains the priority.
-   */
-  const startListening = async () => {
-    console.log("VOICE BUTTON CLICKED");
+  // Start speech recognition.
+  const startListening = () => {
+    console.log("VOICE: Speak button clicked");
 
     if (!supported) {
       setErrorMessage(
-        "Speech recognition is not supported in this browser. Please use Google Chrome."
+        "Speech recognition is not supported. Please use an up-to-date version of Google Chrome."
       );
       return;
     }
 
     if (!recognitionRef.current) {
+      console.error("VOICE: Recognition is not initialized.");
+
       setErrorMessage(
-        "Speech recognition is not initialized."
+        "Speech recognition is not initialized. Refresh the page and try again."
       );
       return;
     }
 
     if (isListeningRef.current) {
-      console.log(
-        "🎤 Recognition is already running."
-      );
+      console.log("VOICE: Recognition is already running.");
       return;
     }
 
     try {
       setErrorMessage("");
+      setStatusMessage("Starting microphone and speech recognition...");
 
-      /*
-       * Start speech recognition first.
-       */
       recognitionRef.current.start();
-
-      console.log(
-        "🎤 Starting speech recognition..."
-      );
-
-      /*
-       * Start audio recording separately.
-       *
-       * If this fails, speech-to-text continues working.
-       */
-      try {
-        await startAudioRecording();
-      } catch (audioError) {
-        console.error(
-          "🎙️ Audio recording could not start:",
-          audioError
-        );
-
-        /*
-         * Do not stop speech recognition.
-         * The journal voice input should continue working.
-         */
-      }
     } catch (error: any) {
-      console.error(
-        "Speech recognition start error:",
-        error
-      );
+      console.error("VOICE: Unable to start recognition:", error);
 
       if (error.name === "InvalidStateError") {
-        console.log(
-          "🎤 Recognition was already running."
+        setErrorMessage(
+          "Speech recognition is already running. Please wait or click Stop."
         );
-
-        isListeningRef.current = true;
-        setIsListening(true);
       } else {
         setErrorMessage(
-          "Unable to start voice input. Please try again."
+          `Unable to start speech recognition: ${
+            error.message || error.name || "Unknown error"
+          }`
         );
       }
+
+      setStatusMessage("");
     }
   };
 
-  /*
-   * Stop both speech recognition and audio recording.
-   */
+  // Stop speech recognition.
   const stopListening = () => {
-    console.log(
-      "🛑 Stopping voice input..."
-    );
+    console.log("VOICE: Stop button clicked");
 
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
       } catch (error) {
-        console.error(
-          "Error stopping recognition:",
-          error
-        );
+        console.error("VOICE: Error stopping recognition:", error);
       }
     }
 
-    stopAudioRecording();
-
     isListeningRef.current = false;
     setIsListening(false);
+    setStatusMessage("Voice input stopped.");
   };
 
   if (!supported) {
@@ -424,14 +262,9 @@ function VoiceInput({
           borderRadius: "12px",
         }}
       >
-        <p
-          style={{
-            margin: 0,
-            color: "#ef4444",
-          }}
-        >
-          Voice input is not supported in this
-          browser. Please use Google Chrome.
+        <p style={{ margin: 0, color: "#ef4444" }}>
+          Speech recognition is not supported in this browser.
+          Please use Google Chrome.
         </p>
       </div>
     );
@@ -499,23 +332,36 @@ function VoiceInput({
           }}
         >
           <Mic size={16} />
-          Listening... Speak clearly.
+          {statusMessage || "Listening... Speak clearly."}
         </div>
+      )}
+
+      {!isListening && statusMessage && (
+        <p
+          style={{
+            marginTop: "10px",
+            color: "#6b7280",
+            fontSize: "14px",
+          }}
+        >
+          {statusMessage}
+        </p>
       )}
 
       {errorMessage && (
         <div
+          role="alert"
           style={{
             marginTop: "10px",
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: "8px",
             color: "#dc2626",
             fontSize: "14px",
           }}
         >
-          <MicOff size={16} />
-          {errorMessage}
+          <MicOff size={18} />
+          <span>{errorMessage}</span>
         </div>
       )}
     </div>

@@ -5703,3 +5703,179 @@ html.dark-mode .voice-analysis-content small {
     padding: 14px;
   }
 }
+/* Delete Account - Danger Zone */
+.profile-danger-card {
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.profile-delete-button,
+.profile-delete-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 10px;
+  background: #dc2626;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.profile-delete-button:hover,
+.profile-delete-confirm:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.profile-delete-button:disabled,
+.profile-delete-confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.profile-delete-error {
+  color: #dc2626;
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+/* Confirmation Modal */
+.profile-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+}
+
+.profile-delete-modal {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  padding: 30px;
+  border-radius: 18px;
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #1f2937);
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
+  animation: profileModalAppear 0.2s ease-out;
+}
+
+.profile-delete-modal h2 {
+  margin: 8px 0 12px;
+}
+
+.profile-delete-modal > p {
+  line-height: 1.65;
+}
+
+.profile-delete-modal-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.profile-delete-modal-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.profile-delete-modal-close:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-delete-modal label {
+  display: block;
+  margin: 20px 0 8px;
+  font-size: 0.9rem;
+}
+
+.profile-delete-modal input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 9px;
+  background: var(--input-bg, transparent);
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.profile-delete-modal input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.profile-delete-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.profile-delete-cancel {
+  padding: 11px 16px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-delete-cancel:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@keyframes profileModalAppear {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-delete-modal {
+    padding: 24px 20px;
+  }
+
+  .profile-delete-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .profile-delete-modal-actions button {
+    width: 100%;
+  }
+}

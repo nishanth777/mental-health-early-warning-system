@@ -119,8 +119,6 @@ function DailyCheckIn() {
   const [journalText, setJournalText] =
     useState("");
 
-  const [voiceAudio, setVoiceAudio] =
-    useState<Blob | null>(null);
 
 
   // ------------------------------------------------------------
@@ -571,22 +569,55 @@ function DailyCheckIn() {
     setResult(null);
 
 
-    if (
-      sleepQuality === null ||
-      stressLevel === null ||
-      academicPressure === null ||
-      mood === null ||
-      energyLevel === null ||
-      socialInteraction === null
-    ) {
-
-      setError(
-        "Please complete all wellbeing ratings before submitting."
-      );
-
+    if (sleepHours.trim() === "") {
+      setError("Please enter your sleep duration.");
       return;
     }
 
+    if (sleepQuality === null) {
+      setError("Please select your sleep quality.");
+      return;
+    }
+
+    if (mood === null) {
+      setError("Please select your mood.");
+      return;
+    }
+
+    if (stressLevel === null) {
+      setError("Please select your stress level.");
+      return;
+    }
+
+    if (academicPressure === null) {
+      setError("Please select your academic pressure level.");
+      return;
+    }
+
+    if (energyLevel === null) {
+      setError("Please select your energy level.");
+      return;
+    }
+
+    if (socialInteraction === null) {
+      setError("Please select your social interaction level.");
+      return;
+    }
+
+    if (exerciseMinutes.trim() === "") {
+      setError("Please enter your exercise duration.");
+      return;
+    }
+
+    if (screenTime.trim() === "") {
+      setError("Please enter your screen time.");
+      return;
+    }
+
+    if (studyHours.trim() === "") {
+      setError("Please enter your study time.");
+      return;
+    }
 
     const sleep =
       Number(sleepHours);
@@ -744,31 +775,6 @@ function DailyCheckIn() {
       );
 
 
-      // --------------------------------------------------------
-      // Voice
-      // --------------------------------------------------------
-
-      if (voiceAudio) {
-
-        formData.append(
-          "voice_audio",
-          voiceAudio,
-          "voice_recording.webm"
-        );
-
-        console.log(
-          "🎙️ Sending voice audio:",
-          voiceAudio.size,
-          "bytes",
-          voiceAudio.type
-        );
-
-      } else {
-
-        console.log(
-          "🎙️ No voice audio recorded."
-        );
-      }
 
 
       // --------------------------------------------------------
@@ -1247,21 +1253,6 @@ function DailyCheckIn() {
           >
 
 
-            {error && (
-
-              <div className="checkin-error">
-
-                <AlertCircle size={20} />
-
-                <span>
-                  {error}
-                </span>
-
-              </div>
-
-            )}
-
-
             {/* Sleep */}
 
             <section className="checkin-card">
@@ -1598,9 +1589,6 @@ function DailyCheckIn() {
                   onTranscript={(text) =>
                     setJournalText(text)
                   }
-                  onAudioRecorded={(audioBlob) =>
-                    setVoiceAudio(audioBlob)
-                  }
                 />
 
 
@@ -1646,7 +1634,7 @@ function DailyCheckIn() {
                   </span>
 
                   <h2>
-                    Facial Emotion
+                    Facial Emotion (Optional)
                   </h2>
 
                   <p>
@@ -1764,6 +1752,17 @@ function DailyCheckIn() {
 
 
             {/* Submit */}
+
+            {error && (
+              <div
+                className="checkin-error"
+                role="alert"
+                aria-live="polite"
+              >
+                <AlertCircle size={20} />
+                <span>{error}</span>
+              </div>
+            )}
 
             <div className="checkin-submit">
 
