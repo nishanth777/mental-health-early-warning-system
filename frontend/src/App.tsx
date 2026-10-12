@@ -7,6 +7,8 @@ import {
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import VerifyEmail from "./pages/VerifyEmail";
+
 import Dashboard from "./pages/Dashboard";
 import DailyCheckIn from "./pages/DailyCheckIn";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -19,11 +21,8 @@ import { ThemeProvider } from "./context/ThemeContext";
 function App() {
   return (
     <ThemeProvider>
-
       <BrowserRouter>
-
         <Routes>
-
           {/* =========================
               PUBLIC ROUTES
           ========================= */}
@@ -38,14 +37,16 @@ function App() {
             element={<Register />}
           />
 
+          <Route
+            path="/verify-email"
+            element={<VerifyEmail />}
+          />
+
           {/* =========================
               PROTECTED ROUTES
           ========================= */}
 
-          <Route
-            element={<ProtectedRoute />}
-          >
-
+          <Route element={<ProtectedRoute />}>
             <Route
               path="/dashboard"
               element={<Dashboard />}
@@ -70,7 +71,6 @@ function App() {
               path="/settings"
               element={<Settings />}
             />
-
           </Route>
 
           {/* =========================
@@ -100,11 +100,8 @@ function App() {
               />
             }
           />
-
         </Routes>
-
       </BrowserRouter>
-
     </ThemeProvider>
   );
 }

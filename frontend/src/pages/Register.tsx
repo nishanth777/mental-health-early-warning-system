@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 import api from "../services/api";
@@ -14,8 +14,6 @@ const taglines = [
 ];
 
 function Register() {
-  const navigate = useNavigate();
-
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,19 +63,32 @@ function Register() {
       });
 
       setSuccess(
-        "Account created successfully. Redirecting to login..."
+        "Account created successfully! Please check your email and click the verification link before signing in."
       );
 
-      setTimeout(() => {
-        navigate("/login");
-      }, 1000);
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
     } catch (error: any) {
       console.error("Registration failed:", error);
 
-      if (error.response?.status === 409) {
+      const status = error.response?.status;
+      const responseData = error.response?.data;
+
+      if (
+        status === 503 &&
+        responseData?.email_verification_required
+      ) {
+        setSuccess(
+          "Your account was created, but we couldn't send the verification email. Please try resending the verification email before signing in."
+        );
+      } else if (status === 409) {
         setError("This email is already registered.");
-      } else if (error.response?.data?.error) {
-        setError(error.response.data.error);
+      } else if (responseData?.error) {
+        setError(responseData.error);
+      } else if (responseData?.message) {
+        setError(responseData.message);
       } else {
         setError(
           "Unable to create your account. Please try again."
@@ -90,7 +101,6 @@ function Register() {
 
   return (
     <main className="login-page">
-
       {/* Left visual section */}
       <section className="login-visual">
         <div className="visual-orb orb-one" />
@@ -110,19 +120,15 @@ function Register() {
       {/* Register section */}
       <section className="login-section">
         <div className="login-content">
-
           {/* Brand */}
           <div className="brand">
-            <span className="brand-name">
-              Clarity
-            </span>
+            <span className="brand-name">Clarity</span>
 
             <p>{tagline}</p>
           </div>
 
           {/* Card */}
           <div className="login-card register-card">
-
             <div className="login-heading">
               <h1>Create your account</h1>
 
@@ -136,7 +142,6 @@ function Register() {
               className="register-form"
               onSubmit={handleSubmit}
             >
-
               {/* Full name */}
               <div className="register-form-group">
                 <label htmlFor="fullName">
@@ -155,7 +160,7 @@ function Register() {
                       setFullName(event.target.value)
                     }
                     autoComplete="name"
-                    disabled={loading}
+                    disabled={loading || !!success}
                   />
                 </div>
               </div>
@@ -178,7 +183,7 @@ function Register() {
                       setEmail(event.target.value)
                     }
                     autoComplete="email"
-                    disabled={loading}
+                    disabled={loading || !!success}
                   />
                 </div>
               </div>
@@ -195,9 +200,7 @@ function Register() {
                   <input
                     id="register-password"
                     type={
-                      showPassword
-                        ? "text"
-                        : "password"
+                      showPassword ? "text" : "password"
                     }
                     placeholder="Create a password"
                     value={password}
@@ -205,23 +208,21 @@ function Register() {
                       setPassword(event.target.value)
                     }
                     autoComplete="new-password"
-                    disabled={loading}
+                    disabled={loading || !!success}
                   />
 
                   <button
                     type="button"
                     className="register-password-toggle"
                     onClick={() =>
-                      setShowPassword(
-                        (current) => !current
-                      )
+                      setShowPassword((current) => !current)
                     }
                     aria-label={
                       showPassword
                         ? "Hide password"
                         : "Show password"
                     }
-                    disabled={loading}
+                    disabled={loading || !!success}
                   >
                     {showPassword ? (
                       <EyeOff size={18} />
@@ -251,12 +252,10 @@ function Register() {
                     placeholder="Confirm your password"
                     value={confirmPassword}
                     onChange={(event) =>
-                      setConfirmPassword(
-                        event.target.value
-                      )
+                      setConfirmPassword(event.target.value)
                     }
                     autoComplete="new-password"
-                    disabled={loading}
+                    disabled={loading || !!success}
                   />
 
                   <button
@@ -272,7 +271,7 @@ function Register() {
                         ? "Hide password"
                         : "Show password"
                     }
-                    disabled={loading}
+                    disabled={loading || !!success}
                   >
                     {showConfirmPassword ? (
                       <EyeOff size={18} />
@@ -285,48 +284,51 @@ function Register() {
 
               {/* Error */}
               {error && (
-                <div className="register-error">
+                <div
+                  className="register-error"
+                  role="alert"
+                >
                   {error}
                 </div>
               )}
 
               {/* Success */}
               {success && (
-                <div className="register-success">
+                <div
+                  className="register-success"
+                  role="status"
+                  aria-live="polite"
+                >
                   {success}
                 </div>
               )}
 
               {/* Submit */}
-              <button
-                type="submit"
-                className="login-button register-submit"
-                disabled={loading}
-              >
-                {loading
-                  ? "Creating account..."
-                  : "Create account"}
-              </button>
-
+              {!success && (
+                <button
+                  type="submit"
+                  className="login-button register-submit"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Creating account..."
+                    : "Create account"}
+                </button>
+              )}
             </form>
 
             {/* Footer */}
             <p className="register-prompt">
               Already have an account?{" "}
-              <Link to="/login">
-                Sign in
-              </Link>
+              <Link to="/login">Sign in</Link>
             </p>
-
           </div>
 
           <p className="login-footer">
             Clarity is designed to support awareness and wellbeing.
           </p>
-
         </div>
       </section>
-
     </main>
   );
 }

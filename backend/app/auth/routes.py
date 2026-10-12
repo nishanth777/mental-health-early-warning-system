@@ -31,46 +31,71 @@ from app.models.user import User
 from app.models.assessment import Assessment
 from app.extensions import bcrypt, db
 from . import auth_bp
+from .verification_service import send_verification_email, verify_token
 
 
 @auth_bp.route("/signup", methods=["POST"])
 def signup():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     full_name = data.get("full_name")
     email = data.get("email")
     password = data.get("password")
 
+    if (
+        not isinstance(full_name, str)
+        or not isinstance(email, str)
+        or not isinstance(password, str)
+    ):
+        return jsonify({"error": "All fields are required"}), 400
+
+    full_name = full_name.strip()
+    email = email.strip().lower()
+
     if not full_name or not email or not password:
-        return jsonify(
-            {
-                "error": "All fields are required"
-            }
-        ), 400
+        return jsonify({"error": "All fields are required"}), 400
 
     existing_user = User.query.filter_by(email=email).first()
 
     if existing_user:
-        return jsonify(
-            {
-                "error": "Email already registered"
-            }
-        ), 409
+        return jsonify({"error": "Email already registered"}), 409
 
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+
     user = User(
         full_name=full_name,
         email=email,
-        password_hash=hashed_password
+        password_hash=hashed_password,
+        provider="email",
+        email_verified=False,
     )
+
     db.session.add(user)
     db.session.commit()
 
-    return jsonify(
-        {
-            "message": "User registered successfully"
-        }
-    ), 201
+    try:
+        send_verification_email(user)
+
+        return jsonify({
+            "message": (
+                "Account created. Please check your email "
+                "to verify your account before signing in."
+            ),
+            "email_verification_required": True,
+            "email": user.email,
+        }), 201
+
+    except Exception as error:
+        print("EMAIL VERIFICATION ERROR:", repr(error))
+
+        return jsonify({
+            "email": user.email,
+            "email_verification_required": True,
+            "message": (
+                "Your account was created, but the verification email "
+                "could not be sent. Please try resending it."
+            ),
+        }), 503
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -101,6 +126,13 @@ def login():
                 "error": "Invalid email or password"
             }
         ), 401
+
+    if not user.email_verified:
+        return jsonify({
+            "error": "Please verify your email address before signing in.",
+            "email_verification_required": True,
+            "email": user.email,
+        }), 403
 
     access_token = create_access_token(identity=str(user.id))
 
@@ -136,6 +168,7 @@ def google_login():
 
         email = idinfo.get("email")
         full_name = idinfo.get("name")
+        google_email_verified = idinfo.get("email_verified") is True
 
         if not email:
             return jsonify(
@@ -144,6 +177,10 @@ def google_login():
                 }
             ), 400
 
+        if not google_email_verified:
+            return jsonify({"error": "Google must confirm that your email address is verified."}), 403
+
+        email = email.strip().lower()
         user = User.query.filter_by(email=email).first()
 
         if not user:
@@ -151,11 +188,20 @@ def google_login():
                 full_name=full_name or "Google User",
                 email=email,
                 password_hash=None,
-                provider="google"
+                provider="google",
+                email_verified=True,
+                email_verified_at=datetime.utcnow(),
             )
-
             db.session.add(user)
-            db.session.commit()
+        else:
+            # A verified Google identity also confirms ownership of this email.
+            user.email_verified = True
+            if not user.email_verified_at:
+                user.email_verified_at = datetime.utcnow()
+            user.email_verification_token_hash = None
+            user.email_verification_expires_at = None
+
+        db.session.commit()
 
         access_token = create_access_token(
             identity=str(user.id)
@@ -176,6 +222,56 @@ def google_login():
         ), 401
 
 
+@auth_bp.route("/verify-email", methods=["POST"])
+def verify_email():
+    data = request.get_json() or {}
+    token = data.get("token")
+
+    if not isinstance(token, str) or not token.strip():
+        return jsonify({"error": "Verification token is required."}), 400
+
+    if not verify_token(token.strip()):
+        return jsonify({"error": "This verification link is invalid or has expired. Request a new link and try again."}), 400
+
+    return jsonify({"message": "Email verified successfully. You can now sign in."}), 200
+
+
+@auth_bp.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    data = request.get_json(silent=True) or {}
+    email = data.get("email")
+
+    if not isinstance(email, str) or not email.strip():
+        return jsonify({"error": "Email is required."}), 400
+
+    email = email.strip().lower()
+    user = User.query.filter_by(email=email).first()
+
+    # Keep the response generic to protect account privacy.
+    if not user or not user.password_hash or user.email_verified:
+        return jsonify({
+            "message": (
+                "If an unverified account exists for that email, "
+                "a verification link will be sent shortly."
+            )
+        }), 200
+
+    try:
+        send_verification_email(user)
+
+        return jsonify({
+            "message": "Verification email sent successfully."
+        }), 200
+
+    except Exception as error:
+        print("RESEND VERIFICATION ERROR:", repr(error))
+
+        return jsonify({
+            "error": (
+                "We couldn't send the verification email. "
+                "Please try again later."
+            )
+        }), 503
 @auth_bp.route("/profile", methods=["GET"])
 @jwt_required()
 def profile():

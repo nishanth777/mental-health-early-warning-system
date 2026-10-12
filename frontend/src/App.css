@@ -5879,3 +5879,41 @@ html.dark-mode .voice-analysis-content small {
     width: 100%;
   }
 }
+/* =========================
+   EMAIL VERIFICATION PAGE
+========================= */
+
+.verification-card {
+  text-align: center;
+}
+
+.verification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.verification-spinner {
+  animation: verification-spin 1s linear infinite;
+}
+
+@keyframes verification-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.verification-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-decoration: none;
+  box-sizing: border-box;
+  margin-top: 24px;
+}
