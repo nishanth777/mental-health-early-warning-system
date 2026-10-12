@@ -36,6 +36,7 @@ from .verification_service import send_verification_email, verify_token
 
 @auth_bp.route("/signup", methods=["POST"])
 def signup():
+    """Create an account without requiring email verification for sign-in."""
     data = request.get_json(silent=True) or {}
 
     full_name = data.get("full_name")
@@ -55,8 +56,20 @@ def signup():
     if not full_name or not email or not password:
         return jsonify({"error": "All fields are required"}), 400
 
-    existing_user = User.query.filter_by(email=email).first()
+    import re
 
+    email_pattern = (
+        r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+        r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+    )
+
+    if len(email) > 254 or not re.fullmatch(email_pattern, email):
+        return jsonify({
+            "error": "Please enter a valid email address."
+        }), 400
+
+    existing_user = User.query.filter_by(email=email).first()
     if existing_user:
         return jsonify({"error": "Email already registered"}), 409
 
@@ -67,81 +80,48 @@ def signup():
         email=email,
         password_hash=hashed_password,
         provider="email",
+        # Keep this false until the address is actually verified.
+        # Verification is not required for sign-in in this demo configuration.
         email_verified=False,
     )
 
     db.session.add(user)
     db.session.commit()
 
-    try:
-        send_verification_email(user)
-
-        return jsonify({
-            "message": (
-                "Account created. Please check your email "
-                "to verify your account before signing in."
-            ),
-            "email_verification_required": True,
-            "email": user.email,
-        }), 201
-
-    except Exception as error:
-        print("EMAIL VERIFICATION ERROR:", repr(error))
-
-        return jsonify({
-            "email": user.email,
-            "email_verification_required": True,
-            "message": (
-                "Your account was created, but the verification email "
-                "could not be sent. Please try resending it."
-            ),
-        }), 503
+    return jsonify({
+        "message": "Account created successfully. You can now sign in.",
+        "email_verification_required": False,
+        "email": user.email,
+    }), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    data = request.get_json() or {}
+    data = request.get_json(silent=True) or {}
 
     email = data.get("email")
     password = data.get("password")
 
-    if not email or not password:
-        return jsonify(
-            {
-                "error": "Email or Password are required"
-            }
-        ), 400
+    if not isinstance(email, str) or not isinstance(password, str) or not email.strip() or not password:
+        return jsonify({"error": "Email and password are required"}), 400
 
+    email = email.strip().lower()
     user = User.query.filter_by(email=email).first()
+
     if not user or not user.password_hash:
-        return jsonify(
-            {
-                "error": "Invalid email or password"
-            }
-        ), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
     if not bcrypt.check_password_hash(user.password_hash, password):
-        return jsonify(
-            {
-                "error": "Invalid email or password"
-            }
-        ), 401
+        return jsonify({"error": "Invalid email or password"}), 401
 
-    if not user.email_verified:
-        return jsonify({
-            "error": "Please verify your email address before signing in.",
-            "email_verification_required": True,
-            "email": user.email,
-        }), 403
-
+    # Email verification is optional in this demo configuration.
+    # Password hashing and JWT authentication remain enabled.
     access_token = create_access_token(identity=str(user.id))
 
-    return jsonify(
-        {
-            "message": "Login successful",
-            "access_token": access_token
-        }
-    ), 200
+    return jsonify({
+        "message": "Login successful",
+        "access_token": access_token,
+    }), 200
 
 
 @auth_bp.route("/google", methods=["POST"])
@@ -979,3 +959,4 @@ def delete_account():
     return jsonify({
         "message": "Your account and associated assessment data have been deleted."
     }), 200
+
