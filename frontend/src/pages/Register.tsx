@@ -63,8 +63,8 @@ function Register() {
       });
 
       setSuccess(
-        "Account created successfully! Please check your email and click the verification link before signing in."
-      );
+  "Account created successfully! You can now sign in."
+    );
 
       setFullName("");
       setEmail("");
