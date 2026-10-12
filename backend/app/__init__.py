@@ -17,21 +17,35 @@ from app.dashboard import dashboard_bp
 def create_app():
     app = Flask(__name__)
 
+    # Load application configuration
     app.config.from_object(Config)
 
-    # Enable CORS for the React frontend
-# Enable CORS for local development and the deployed frontend
+    # Enable CORS for local development and the deployed frontend
     CORS(
-    app,
-    resources={
-        r"/*": {
-            "origins": [
-                "http://localhost:5173",
-                "https://mental-health-early-warning-system.vercel.app",
-            ]
-        }
-    }
-)
+        app,
+        resources={
+            r"/*": {
+                "origins": [
+                    "http://localhost:5173",
+                    "https://mental-health-early-warning-system.vercel.app",
+                ]
+            }
+        },
+        supports_credentials=True,
+        allow_headers=[
+            "Content-Type",
+            "Authorization",
+        ],
+        methods=[
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+        ],
+    )
+
     # Initialize extensions
     db.init_app(app)
     bcrypt.init_app(app)
@@ -41,17 +55,17 @@ def create_app():
     # Register blueprints
     app.register_blueprint(
         auth_bp,
-        url_prefix="/auth"
+        url_prefix="/auth",
     )
 
     app.register_blueprint(
         assessment_bp,
-        url_prefix="/assessment"
+        url_prefix="/assessment",
     )
 
     app.register_blueprint(
         dashboard_bp,
-        url_prefix="/dashboard"
+        url_prefix="/dashboard",
     )
 
     @app.route("/")
