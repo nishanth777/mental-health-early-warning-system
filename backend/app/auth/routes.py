@@ -55,16 +55,18 @@ def signup():
     if not full_name or not email or not password:
         return jsonify({"error": "All fields are required"}), 400
 
-    # Validate the email syntax on the server; frontend checks can be bypassed.
     import re
-    email_pattern = r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
-    if len(email) > 254 or not re.fullmatch(email_pattern, email):
-        return jsonify({"error": "Please enter a valid email address."}), 400
 
-    # Reject domains that have no DNS mail/existence records only if the
-    # optional DNS resolver is available; syntax validation remains reliable
-    # without an extra dependency. This step is intentionally not included here:
-    # DNS records cannot prove that a specific mailbox exists.
+    email_pattern = (
+        r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+        r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+        r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$"
+    )
+
+    if len(email) > 254 or not re.fullmatch(email_pattern, email):
+        return jsonify({
+            "error": "Please enter a valid email address."
+        }), 400
 
     existing_user = User.query.filter_by(email=email).first()
 
