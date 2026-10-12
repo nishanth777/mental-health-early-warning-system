@@ -22,7 +22,11 @@ class Config:
                 1,
             )
 
-        SQLALCHEMY_DATABASE_URI = DATABASE_URL
+        SQLALCHEMY_DATABASE_URI = DATABASE_URL.replace(
+    "postgresql://",
+    "postgresql+psycopg2://",
+    1,
+)
 
     else:
         # Local development: use individual database variables.
