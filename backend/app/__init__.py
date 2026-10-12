@@ -20,15 +20,18 @@ def create_app():
     app.config.from_object(Config)
 
     # Enable CORS for the React frontend
+# Enable CORS for local development and the deployed frontend
     CORS(
-        app,
-        resources={
-            r"/*": {
-                "origins": "http://localhost:5173"
-            }
+    app,
+    resources={
+        r"/*": {
+            "origins": [
+                "http://localhost:5173",
+                "https://mental-health-early-warning-system.vercel.app",
+            ]
         }
-    )
-
+    }
+)
     # Initialize extensions
     db.init_app(app)
     bcrypt.init_app(app)
