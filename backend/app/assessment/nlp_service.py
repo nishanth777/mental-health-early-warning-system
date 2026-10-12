@@ -1,8 +1,11 @@
 import re
 from collections import Counter
-import joblib
+from functools import lru_cache
 from pathlib import Path
+
+import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
+
 
 # ============================================================
 # NLP Model
@@ -17,11 +20,32 @@ NLP_MODEL_PATH = (
     / "nlp_model.pkl"
 )
 
-nlp_model = joblib.load(NLP_MODEL_PATH)
 
-print("✅ NLP Model Loaded Successfully")
-print(nlp_model)
-# Common English stop words
+@lru_cache(maxsize=1)
+def get_nlp_model():
+    """
+    Load the NLP model only when a prediction is requested.
+
+    The loaded model is cached and reused for subsequent
+    predictions in the same Python process.
+    """
+
+    if not NLP_MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"NLP model file not found: {NLP_MODEL_PATH}"
+        )
+
+    model = joblib.load(NLP_MODEL_PATH)
+
+    print("NLP model loaded successfully.")
+
+    return model
+
+
+# ============================================================
+# Common English Stop Words
+# ============================================================
+
 STOP_WORDS = {
     "a", "an", "the", "and", "or", "but", "if", "then",
     "is", "am", "are", "was", "were", "be", "been",
@@ -35,6 +59,10 @@ STOP_WORDS = {
     "again", "more", "most", "some", "such"
 }
 
+
+# ============================================================
+# Text Validation
+# ============================================================
 
 def validate_text(text):
     """
@@ -83,7 +111,9 @@ def validate_text(text):
     most_common_count = 0
 
     if word_counts:
-        most_common_word, most_common_count = word_counts.most_common(1)[0]
+        most_common_word, most_common_count = (
+            word_counts.most_common(1)[0]
+        )
 
     repetition_ratio = (
         most_common_count / meaningful_count
@@ -126,6 +156,10 @@ def validate_text(text):
     }
 
 
+# ============================================================
+# Text Preprocessing
+# ============================================================
+
 def preprocess_text(text):
     """
     Prepare journal text for NLP processing.
@@ -162,12 +196,13 @@ def preprocess_text(text):
     return meaningful_words
 
 
+# ============================================================
+# TF-IDF Utilities
+# ============================================================
+
 def create_tfidf_vectorizer():
     """
     Create and return a TF-IDF vectorizer.
-
-    The vectorizer uses the same preprocessing function
-    used by the journal-processing pipeline.
     """
 
     return TfidfVectorizer(
@@ -186,7 +221,7 @@ def fit_tfidf(texts):
         texts: List of journal/text documents.
 
     Returns:
-        vectorizer: Fitted TF-IDF vectorizer
+        vectorizer: Fitted vectorizer
         matrix: TF-IDF feature matrix
     """
 
@@ -205,6 +240,7 @@ def transform_tfidf(vectorizer, text):
 
     return vectorizer.transform([text])
 
+
 # ============================================================
 # NLP Prediction
 # ============================================================
@@ -213,9 +249,8 @@ def predict_nlp_risk(text):
     """
     Predict elevated concern probability from journal text.
 
-    Returns:
-        dict containing validation status, risk probability,
-        and prediction.
+    Returns a dictionary containing validation status,
+    risk probability, and prediction.
     """
 
     validation = validate_text(text)
@@ -232,6 +267,12 @@ def predict_nlp_risk(text):
             "reason": validation["reason"],
             "validation": validation,
         }
+
+    # --------------------------------------------------------
+    # Load the model only when a valid prediction is needed
+    # --------------------------------------------------------
+
+    nlp_model = get_nlp_model()
 
     # --------------------------------------------------------
     # NLP prediction

@@ -1,5 +1,8 @@
-import joblib
+from functools import lru_cache
 from pathlib import Path
+
+import joblib
+
 
 # Path to backend/
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -7,11 +10,19 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 # Path to trained ML model
 MODEL_PATH = BASE_DIR / "ml" / "models" / "depression_model.pkl"
 
-# Load model once when Flask starts
-model = joblib.load(MODEL_PATH)
 
-print("✅ ML Model Loaded Successfully")
-print(model)
+@lru_cache(maxsize=1)
+def get_model():
+    """Load the structured ML model once, when first needed."""
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"Depression model file not found: {MODEL_PATH}"
+        )
+
+    model = joblib.load(MODEL_PATH)
+    print("Structured ML model loaded successfully.")
+
+    return model
 
 
 def predict_depression(assessment_data):
@@ -22,7 +33,6 @@ def predict_depression(assessment_data):
         prediction (int): 0 = Low Risk, 1 = High Risk
         risk_score (float): Probability between 0 and 1
     """
-
     features = [[
         assessment_data["sleep_hours"],
         assessment_data["sleep_quality"],
@@ -36,29 +46,27 @@ def predict_depression(assessment_data):
         assessment_data["study_hours"],
     ]]
 
-    prediction = int(model.predict(features)[0])
+    model = get_model()
 
+    prediction = int(model.predict(features)[0])
     risk_score = float(model.predict_proba(features)[0][1])
 
     return prediction, risk_score
-def get_risk_level(risk_score):
-    """
-    Convert probability into a human-readable risk level.
-    """
 
+
+def get_risk_level(risk_score):
+    """Convert probability into a human-readable risk level."""
     percentage = risk_score * 100
 
     if percentage < 30:
         return "Low"
-
     elif percentage < 70:
         return "Moderate"
-
     else:
         return "High"
 
-def generate_recommendations(assessment_data, risk_score):
 
+def generate_recommendations(assessment_data, risk_score):
     recommendations = []
 
     if assessment_data["sleep_hours"] < 7:
@@ -96,7 +104,7 @@ def generate_recommendations(assessment_data, risk_score):
             "Consider consulting a mental health professional if these feelings continue."
         )
 
-    if len(recommendations) == 0:
+    if not recommendations:
         recommendations.append(
             "Keep maintaining your healthy lifestyle."
         )

@@ -1,11 +1,9 @@
+from functools import lru_cache
 from pathlib import Path
 
 import cv2
 import numpy as np
-import torch
-import torch.nn as nn
 from PIL import Image
-from torchvision import transforms
 
 
 # ------------------------------------------------------------
@@ -21,11 +19,6 @@ MODEL_PATH = (
     / "facial_emotion_cnn_v2.pth"
 )
 
-
-# ------------------------------------------------------------
-# Emotion classes
-# ------------------------------------------------------------
-
 EMOTION_CLASSES = [
     "angry",
     "disgust",
@@ -38,150 +31,7 @@ EMOTION_CLASSES = [
 
 
 # ------------------------------------------------------------
-# CNN architecture
-# ------------------------------------------------------------
-
-class FacialEmotionCNN(nn.Module):
-
-    def __init__(self, num_classes=7):
-        super().__init__()
-
-        self.features = nn.Sequential(
-
-            # Block 1
-            nn.Conv2d(
-                1,
-                32,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-
-            nn.Conv2d(
-                32,
-                32,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.20),
-
-            # Block 2
-            nn.Conv2d(
-                32,
-                64,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-
-            nn.Conv2d(
-                64,
-                64,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.25),
-
-            # Block 3
-            nn.Conv2d(
-                64,
-                128,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-
-            nn.Conv2d(
-                128,
-                128,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.30),
-
-            # Block 4
-            nn.Conv2d(
-                128,
-                256,
-                kernel_size=3,
-                padding=1
-            ),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-
-            nn.MaxPool2d(2),
-            nn.Dropout2d(0.35),
-        )
-
-        self.classifier = nn.Sequential(
-
-            nn.Flatten(),
-
-            nn.Linear(
-                256 * 3 * 3,
-                256
-            ),
-
-            nn.ReLU(inplace=True),
-
-            nn.Dropout(0.5),
-
-            nn.Linear(
-                256,
-                num_classes
-            )
-        )
-
-    def forward(self, x):
-
-        x = self.features(x)
-
-        x = self.classifier(x)
-
-        return x
-
-
-# ------------------------------------------------------------
-# Load model
-# ------------------------------------------------------------
-
-device = torch.device("cpu")
-
-model = FacialEmotionCNN(
-    num_classes=len(EMOTION_CLASSES)
-).to(device)
-
-
-checkpoint = torch.load(
-    MODEL_PATH,
-    map_location=device
-)
-
-
-model.load_state_dict(
-    checkpoint["model_state_dict"]
-)
-
-model.eval()
-
-
-# ------------------------------------------------------------
-# OpenCV face detector
+# Lightweight face detector setup
 # ------------------------------------------------------------
 
 FACE_CASCADE_PATH = (
@@ -189,9 +39,7 @@ FACE_CASCADE_PATH = (
     + "haarcascade_frontalface_default.xml"
 )
 
-face_detector = cv2.CascadeClassifier(
-    FACE_CASCADE_PATH
-)
+face_detector = cv2.CascadeClassifier(FACE_CASCADE_PATH)
 
 if face_detector.empty():
     raise RuntimeError(
@@ -200,26 +48,95 @@ if face_detector.empty():
 
 
 # ------------------------------------------------------------
-# Image preprocessing
+# Lazy-load the model and heavy ML dependencies on first use
 # ------------------------------------------------------------
 
-image_transform = transforms.Compose([
+@lru_cache(maxsize=1)
+def get_facial_model():
+    import torch
+    import torch.nn as nn
+    from torchvision import transforms
 
-    transforms.Grayscale(
-        num_output_channels=1
-    ),
+    class FacialEmotionCNN(nn.Module):
+        def __init__(self, num_classes=7):
+            super().__init__()
 
-    transforms.Resize(
-        (48, 48)
-    ),
+            self.features = nn.Sequential(
+                nn.Conv2d(1, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ReLU(inplace=True),
 
-    transforms.ToTensor(),
+                nn.Conv2d(32, 32, kernel_size=3, padding=1),
+                nn.BatchNorm2d(32),
+                nn.ReLU(inplace=True),
 
-    transforms.Normalize(
-        mean=[0.5],
-        std=[0.5]
-    ),
-])
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.20),
+
+                nn.Conv2d(32, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True),
+
+                nn.Conv2d(64, 64, kernel_size=3, padding=1),
+                nn.BatchNorm2d(64),
+                nn.ReLU(inplace=True),
+
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.25),
+
+                nn.Conv2d(64, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+
+                nn.Conv2d(128, 128, kernel_size=3, padding=1),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True),
+
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.30),
+
+                nn.Conv2d(128, 256, kernel_size=3, padding=1),
+                nn.BatchNorm2d(256),
+                nn.ReLU(inplace=True),
+
+                nn.MaxPool2d(2),
+                nn.Dropout2d(0.35),
+            )
+
+            self.classifier = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(256 * 3 * 3, 256),
+                nn.ReLU(inplace=True),
+                nn.Dropout(0.5),
+                nn.Linear(256, num_classes),
+            )
+
+        def forward(self, x):
+            x = self.features(x)
+            return self.classifier(x)
+
+    device = torch.device("cpu")
+
+    model = FacialEmotionCNN(
+        num_classes=len(EMOTION_CLASSES)
+    ).to(device)
+
+    checkpoint = torch.load(
+        MODEL_PATH,
+        map_location=device,
+    )
+
+    model.load_state_dict(checkpoint["model_state_dict"])
+    model.eval()
+
+    image_transform = transforms.Compose([
+        transforms.Grayscale(num_output_channels=1),
+        transforms.Resize((48, 48)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5], std=[0.5]),
+    ])
+
+    return torch, model, image_transform, device
 
 
 # ------------------------------------------------------------
@@ -227,113 +144,50 @@ image_transform = transforms.Compose([
 # ------------------------------------------------------------
 
 def detect_and_crop_face(image):
-    """
-    Detect the largest face in the image and return
-    a cropped PIL image.
+    """Detect the largest face and return a cropped PIL image."""
 
-    The original image is not saved.
-    """
-
-    # Make sure the image is RGB
     image = image.convert("RGB")
-
-    # PIL -> NumPy
     image_array = np.array(image)
 
-    # RGB -> BGR for OpenCV
     image_bgr = cv2.cvtColor(
         image_array,
-        cv2.COLOR_RGB2BGR
+        cv2.COLOR_RGB2BGR,
     )
 
-    # Convert to grayscale
     gray = cv2.cvtColor(
         image_bgr,
-        cv2.COLOR_BGR2GRAY
+        cv2.COLOR_BGR2GRAY,
     )
 
-    # Detect faces
     faces = face_detector.detectMultiScale(
         gray,
         scaleFactor=1.1,
         minNeighbors=5,
-        minSize=(80, 80)
+        minSize=(80, 80),
     )
 
-    # No face detected
     if len(faces) == 0:
-
-        print(
-            "📷 No face detected in the captured image."
-        )
-
         raise ValueError(
             "No face detected. Please make sure your face "
             "is clearly visible and facing the camera."
         )
 
-    # --------------------------------------------------------
-    # Select the largest detected face
-    # --------------------------------------------------------
-
-    largest_face = max(
+    x, y, width, height = max(
         faces,
-        key=lambda face: face[2] * face[3]
+        key=lambda face: face[2] * face[3],
     )
-
-    # Debug information
-    print(
-        f"📷 Faces detected: {len(faces)} | "
-        f"Selected face: {largest_face}"
-    )
-
-    x, y, width, height = largest_face
-
-    # --------------------------------------------------------
-    # Add padding around the face
-    # --------------------------------------------------------
 
     padding_x = int(width * 0.20)
     padding_y = int(height * 0.20)
 
     image_height, image_width = gray.shape
 
-    x1 = max(
-        0,
-        x - padding_x
-    )
+    x1 = max(0, x - padding_x)
+    y1 = max(0, y - padding_y)
+    x2 = min(image_width, x + width + padding_x)
+    y2 = min(image_height, y + height + padding_y)
 
-    y1 = max(
-        0,
-        y - padding_y
-    )
-
-    x2 = min(
-        image_width,
-        x + width + padding_x
-    )
-
-    y2 = min(
-        image_height,
-        y + height + padding_y
-    )
-
-    # --------------------------------------------------------
-    # Crop face
-    # --------------------------------------------------------
-
-    face_crop = image.crop(
-        (x1, y1, x2, y2)
-    )
-
-    print(
-        f"📷 Face crop: "
-        f"x={x1}, y={y1}, "
-        f"width={x2 - x1}, "
-        f"height={y2 - y1}"
-    )
-
-    return face_crop
+    return image.crop((x1, y1, x2, y2))
 
 
 # ------------------------------------------------------------
@@ -341,78 +195,25 @@ def detect_and_crop_face(image):
 # ------------------------------------------------------------
 
 def predict_facial_emotion(image):
-
     if image is None:
+        raise ValueError("No facial image was provided.")
 
-        raise ValueError(
-            "No facial image was provided."
-        )
-
-    # Open uploaded image
     if not isinstance(image, Image.Image):
-
         image = Image.open(image)
 
-    # --------------------------------------------------------
-    # Detect and crop face
-    # --------------------------------------------------------
+    face_crop = detect_and_crop_face(image)
 
-    face_crop = detect_and_crop_face(
-        image
-    )
+    torch, model, image_transform, device = get_facial_model()
 
-    # --------------------------------------------------------
-    # Prepare image for CNN
-    # --------------------------------------------------------
-
-    tensor = image_transform(
-        face_crop
-    ).unsqueeze(0).to(device)
-
-    # --------------------------------------------------------
-    # CNN prediction
-    # --------------------------------------------------------
+    tensor = image_transform(face_crop).unsqueeze(0).to(device)
 
     with torch.no_grad():
-
-        outputs = model(
-            tensor
-        )
-
-        probabilities = torch.softmax(
-            outputs,
-            dim=1
-        )[0]
-
-        predicted_index = torch.argmax(
-            probabilities
-        ).item()
-
-        confidence = float(
-            probabilities[predicted_index]
-        )
-
-    emotion = EMOTION_CLASSES[
-        predicted_index
-    ]
-
-    # --------------------------------------------------------
-    # Debug output
-    # --------------------------------------------------------
-
-    print(
-        f"📷 Facial emotion detected: {emotion}"
-    )
-
-    print(
-        f"📷 Facial confidence: {confidence:.4f}"
-    )
-
-    # --------------------------------------------------------
-    # Return result
-    # --------------------------------------------------------
+        outputs = model(tensor)
+        probabilities = torch.softmax(outputs, dim=1)[0]
+        predicted_index = torch.argmax(probabilities).item()
+        confidence = float(probabilities[predicted_index])
 
     return {
-        "emotion": emotion,
+        "emotion": EMOTION_CLASSES[predicted_index],
         "confidence": confidence,
     }
