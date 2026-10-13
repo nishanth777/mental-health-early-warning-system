@@ -86,29 +86,14 @@ def signup():
     db.session.add(user)
     db.session.commit()
 
-    try:
-        send_verification_email(user)
-
-        return jsonify({
-            "message": (
-                "Account created. Please check your email "
-                "to verify your account before signing in."
-            ),
-            "email_verification_required": True,
-            "email": user.email,
-        }), 201
-
-    except Exception as error:
-        print("EMAIL VERIFICATION ERROR:", repr(error))
-
-        return jsonify({
-            "email": user.email,
-            "email_verification_required": True,
-            "message": (
-                "Your account was created, but the verification email "
-                "could not be sent. Please try resending it."
-            ),
-        }), 503
+    # Email verification is optional. The account can be used immediately.
+    # Keep email_verified=False until ownership is actually verified; login
+    # no longer blocks users based on this field.
+    return jsonify({
+        "message": "Account created successfully. You can now sign in.",
+        "email_verification_required": False,
+        "email": user.email,
+    }), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -139,13 +124,6 @@ def login():
                 "error": "Invalid email or password"
             }
         ), 401
-
-    if not user.email_verified:
-        return jsonify({
-            "error": "Please verify your email address before signing in.",
-            "email_verification_required": True,
-            "email": user.email,
-        }), 403
 
     access_token = create_access_token(identity=str(user.id))
 
