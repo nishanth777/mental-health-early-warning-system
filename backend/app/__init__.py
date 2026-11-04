@@ -2,7 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from config import Config
-from app.extensions import db, bcrypt, jwt, migrate
+from app.extensions import db, bcrypt, jwt, migrate, limiter
 
 # Import models
 from app.models.user import User
@@ -51,6 +51,7 @@ def create_app():
     bcrypt.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
 
     # Register blueprints
     app.register_blueprint(

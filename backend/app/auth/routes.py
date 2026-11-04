@@ -29,12 +29,13 @@ from google.auth.transport import requests as google_requests
 
 from app.models.user import User
 from app.models.assessment import Assessment
-from app.extensions import bcrypt, db
+from app.extensions import bcrypt, db, limiter
 from . import auth_bp
 from .verification_service import send_verification_email, verify_token
 
 
 @auth_bp.route("/signup", methods=["POST"])
+@limiter.limit("5 per minute")
 def signup():
     data = request.get_json(silent=True) or {}
 
@@ -97,6 +98,7 @@ def signup():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("10 per minute")
 def login():
     data = request.get_json() or {}
 
@@ -136,6 +138,7 @@ def login():
 
 
 @auth_bp.route("/google", methods=["POST"])
+@limiter.limit("10 per minute")
 def google_login():
     data = request.get_json() or {}
 
@@ -214,6 +217,7 @@ def google_login():
 
 
 @auth_bp.route("/verify-email", methods=["POST"])
+@limiter.limit("10 per minute")
 def verify_email():
     data = request.get_json() or {}
     token = data.get("token")
@@ -228,6 +232,7 @@ def verify_email():
 
 
 @auth_bp.route("/resend-verification", methods=["POST"])
+@limiter.limit("5 per minute")
 def resend_verification():
     data = request.get_json(silent=True) or {}
     email = data.get("email")

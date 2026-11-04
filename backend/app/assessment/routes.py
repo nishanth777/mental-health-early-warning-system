@@ -1,3 +1,4 @@
+import math
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
@@ -114,6 +115,42 @@ def submit_assessment():
         }), 400
 
     # --------------------------------------------------------
+    # Logical activity validation (24-hour limit & overlap constraints)
+    # --------------------------------------------------------
+
+    sleep_h = data["sleep_hours"]
+    screen_h = data["screen_time"]
+    study_h = data["study_hours"]
+    exercise_m = data["exercise_minutes"]
+
+    # Explicitly check for non-finite values (NaN, Inf, -Inf)
+    if not (
+        math.isfinite(sleep_h)
+        and math.isfinite(study_h)
+        and math.isfinite(screen_h)
+        and math.isfinite(exercise_m)
+    ):
+        return jsonify({
+            "error": "Input values must be finite numbers."
+        }), 400
+
+    # Validate individual ranges
+    if not (0 <= sleep_h <= 24) or not (0 <= study_h <= 24) or \
+       not (0 <= screen_h <= 24) or not (0 <= exercise_m <= 1440):
+        return jsonify({
+            "error": "Input values are out of permitted range."
+        }), 400
+
+    # Formula: sleep + (exercise/60) + max(study, screen) <= 24
+    # Note: Simplified heuristic as study and screen time may overlap.
+    total_time = sleep_h + (exercise_m / 60.0) + max(study_h, screen_h)
+
+    if total_time > 24.0:
+        return jsonify({
+            "error": "Your total daily activity time (Sleep + Exercise + max(Study, Screen)) exceeds 24 hours."
+        }), 400
+
+    # --------------------------------------------------------
     # Facial emotion processing
     # --------------------------------------------------------
 
@@ -127,44 +164,52 @@ def submit_assessment():
 
     if facial_file and facial_file.filename:
 
-        try:
+        # Optional size and extension sanity check
+        allowed_extensions = {".jpg", ".jpeg", ".png", ".webp"}
+        filename_lower = facial_file.filename.lower()
+        has_valid_ext = any(filename_lower.endswith(ext) for ext in allowed_extensions)
 
-            facial_result = (
-                predict_facial_emotion(
-                    facial_file
+        if not has_valid_ext:
+            print("📷 Facial upload warning: Invalid file extension.")
+        else:
+            try:
+
+                facial_result = (
+                    predict_facial_emotion(
+                        facial_file
+                    )
                 )
-            )
 
-            facial_emotion = (
-                facial_result["emotion"]
-            )
+                facial_emotion = (
+                    facial_result["emotion"]
+                )
 
-            facial_confidence = (
-                facial_result["confidence"]
-            )
+                facial_confidence = (
+                    facial_result["confidence"]
+                )
 
-            facial_used = True
+                facial_used = True
 
-            print(
-                "📷 Facial emotion detected:",
-                facial_emotion
-            )
+                print(
+                    "📷 Facial emotion detected:",
+                    facial_emotion
+                )
 
-            print(
-                "📷 Facial confidence:",
-                facial_confidence
-            )
+                print(
+                    "📷 Facial confidence:",
+                    facial_confidence
+                )
 
-        except Exception as exc:
+            except Exception as exc:
 
-            print(
-                "📷 Facial processing error:",
-                exc
-            )
+                print(
+                    "📷 Facial processing error:",
+                    exc
+                )
 
-            facial_emotion = None
-            facial_confidence = None
-            facial_used = False
+                facial_emotion = None
+                facial_confidence = None
+                facial_used = False
 
     # --------------------------------------------------------
     # Structured ML prediction

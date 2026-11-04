@@ -121,6 +121,9 @@ def get_facial_model():
         num_classes=len(EMOTION_CLASSES)
     ).to(device)
 
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+
     checkpoint = torch.load(
         MODEL_PATH,
         map_location=device,

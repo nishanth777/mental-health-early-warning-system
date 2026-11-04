@@ -631,59 +631,62 @@ function DailyCheckIn() {
     const study =
       Number(studyHours);
 
+    // --------------------------------------------------------
+    // Validation: Activity logical constraints
+    // --------------------------------------------------------
 
-    if (
-      !Number.isFinite(sleep) ||
-      sleep < 3 ||
-      sleep > 9
-    ) {
+    // Formula: sleep + (exercise/60) + max(study, screen) <= 24
+    // Document: This is a simplified heuristic as study and screen time overlap.
+    const totalTime = sleep + (exercise / 60) + Math.max(study, screen);
 
+    if (totalTime > 24) {
       setError(
-        "Sleep duration should be between 3 and 9 hours."
+        "Your total daily activity time (Sleep + Exercise + max(Study, Screen)) exceeds 24 hours."
       );
-
       return;
     }
 
+    if (
+      !Number.isFinite(sleep) ||
+      sleep < 0 ||
+      sleep > 24
+    ) {
+      setError(
+        "Sleep duration should be between 0 and 24 hours."
+      );
+      return;
+    }
 
     if (
       !Number.isFinite(exercise) ||
       exercise < 0 ||
-      exercise > 90
+      exercise > 1440
     ) {
-
       setError(
-        "Exercise duration should be between 0 and 90 minutes."
+        "Exercise duration should be between 0 and 1,440 minutes."
       );
-
       return;
     }
-
 
     if (
       !Number.isFinite(screen) ||
       screen < 0 ||
       screen > 24
     ) {
-
       setError(
         "Screen time should be between 0 and 24 hours."
       );
-
       return;
     }
 
-
     if (
       !Number.isFinite(study) ||
-      study < 2 ||
-      study > 12
+      study < 0 ||
+      study > 24
     ) {
-
       setError(
-        "Study hours should be between 2 and 12 hours."
+        "Study hours should be between 0 and 24 hours."
       );
-
       return;
     }
 
@@ -1297,8 +1300,8 @@ function DailyCheckIn() {
                     <input
                       id="sleep-hours"
                       type="number"
-                      min="3"
-                      max="9"
+                      min="0"
+                      max="24"
                       step="0.1"
                       placeholder="7.5"
                       value={sleepHours}
@@ -1316,7 +1319,7 @@ function DailyCheckIn() {
                   </div>
 
                   <small>
-                    Between 3 and 9 hours
+                    Between 0 and 24 hours
                   </small>
 
                 </div>
@@ -1504,7 +1507,7 @@ function DailyCheckIn() {
                     placeholder="30"
                     suffix="minutes"
                     min="0"
-                    max="90"
+                    max="1440"
                     step="1"
                   />
 
@@ -1533,8 +1536,8 @@ function DailyCheckIn() {
                     }
                     placeholder="5"
                     suffix="hours"
-                    min="2"
-                    max="12"
+                    min="0"
+                    max="24"
                     step="0.1"
                   />
 

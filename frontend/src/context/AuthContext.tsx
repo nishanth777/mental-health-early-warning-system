@@ -104,13 +104,50 @@ export function AuthProvider({
   useEffect(() => {
     const checkAuthentication = async () => {
       setLoading(true);
-
       await fetchProfile();
-
       setLoading(false);
     };
 
     checkAuthentication();
+  }, [fetchProfile]);
+
+  /*
+   * Force revalidation of authentication when the user
+   * returns to the app or restores the page from BFCache.
+   */
+  useEffect(() => {
+    const handleRevalidation = async () => {
+      // Re-validate the session silently when user switches back to this tab
+      if (!document.hidden) {
+        await fetchProfile();
+      }
+    };
+
+    const handlePageShow = async (event: PageTransitionEvent) => {
+      // event.persisted is true if the page was restored from BFCache (Back/Forward)
+      if (event.persisted) {
+        await fetchProfile();
+      }
+    };
+
+    const handleStorageChange = (event: StorageEvent) => {
+      // Detect logout in another tab
+      if (event.key === "access_token" && !event.newValue) {
+        setUser(null);
+        setLoading(true);
+        void fetchProfile().finally(() => setLoading(false));
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleRevalidation);
+    window.addEventListener("pageshow", handlePageShow);
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleRevalidation);
+      window.removeEventListener("pageshow", handlePageShow);
+      window.removeEventListener("storage", handleStorageChange);
+    };
   }, [fetchProfile]);
 
   return (
