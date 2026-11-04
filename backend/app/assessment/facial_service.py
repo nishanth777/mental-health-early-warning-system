@@ -30,17 +30,23 @@ EMOTION_CLASSES = [
 # Lightweight face detector setup
 # ------------------------------------------------------------
 
-FACE_CASCADE_PATH = (
-    cv2.data.haarcascades
-    + "haarcascade_frontalface_default.xml"
-)
+@lru_cache(maxsize=1)
+def get_face_detector():
+    import cv2
 
-face_detector = cv2.CascadeClassifier(FACE_CASCADE_PATH)
-
-if face_detector.empty():
-    raise RuntimeError(
-        "Failed to load OpenCV Haar Cascade face detector."
+    cascade_path = (
+        cv2.data.haarcascades
+        + "haarcascade_frontalface_default.xml"
     )
+
+    detector = cv2.CascadeClassifier(cascade_path)
+
+    if detector.empty():
+        raise RuntimeError(
+            "Failed to load OpenCV Haar Cascade face detector."
+        )
+
+    return detector
 
 
 # ------------------------------------------------------------
