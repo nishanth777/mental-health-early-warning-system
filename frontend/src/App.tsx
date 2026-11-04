@@ -1,8 +1,7 @@
 import {
-  BrowserRouter,
-  Routes,
-  Route,
+  createBrowserRouter,
   Navigate,
+  RouterProvider,
 } from "react-router-dom";
 
 import Login from "./pages/Login";
@@ -18,90 +17,65 @@ import Settings from "./pages/Settings";
 
 import { ThemeProvider } from "./context/ThemeContext";
 
+const router = createBrowserRouter([
+  // Public routes
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/register",
+    element: <Register />,
+  },
+  {
+    path: "/verify-email",
+    element: <VerifyEmail />,
+  },
+
+  // Protected routes
+  {
+    element: <ProtectedRoute />,
+    children: [
+      {
+        path: "/dashboard",
+        element: <Dashboard />,
+      },
+      {
+        path: "/check-in",
+        element: <DailyCheckIn />,
+      },
+      {
+        path: "/progress",
+        element: <Progress />,
+      },
+      {
+        path: "/profile",
+        element: <Profile />,
+      },
+      {
+        path: "/settings",
+        element: <Settings />,
+      },
+    ],
+  },
+
+  // Default route
+  {
+    path: "/",
+    element: <Navigate to="/login" replace />,
+  },
+
+  // Unknown routes
+  {
+    path: "*",
+    element: <Navigate to="/login" replace />,
+  },
+]);
+
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* =========================
-              PUBLIC ROUTES
-          ========================= */}
-
-          <Route
-            path="/login"
-            element={<Login />}
-          />
-
-          <Route
-            path="/register"
-            element={<Register />}
-          />
-
-          <Route
-            path="/verify-email"
-            element={<VerifyEmail />}
-          />
-
-          {/* =========================
-              PROTECTED ROUTES
-          ========================= */}
-
-          <Route element={<ProtectedRoute />}>
-            <Route
-              path="/dashboard"
-              element={<Dashboard />}
-            />
-
-            <Route
-              path="/check-in"
-              element={<DailyCheckIn />}
-            />
-
-            <Route
-              path="/progress"
-              element={<Progress />}
-            />
-
-            <Route
-              path="/profile"
-              element={<Profile />}
-            />
-
-            <Route
-              path="/settings"
-              element={<Settings />}
-            />
-          </Route>
-
-          {/* =========================
-              DEFAULT ROUTE
-          ========================= */}
-
-          <Route
-            path="/"
-            element={
-              <Navigate
-                to="/login"
-                replace
-              />
-            }
-          />
-
-          {/* =========================
-              UNKNOWN ROUTE
-          ========================= */}
-
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/login"
-                replace
-              />
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </ThemeProvider>
   );
 }

@@ -66,7 +66,10 @@ function Login() {
       }
 
       await login(token);
-      navigate("/dashboard");
+
+      // Replace login history entry to prevent returning
+      // to the login page using browser Back navigation.
+        navigate("/dashboard");
     } catch (err: any) {
       console.error("Login failed:", err);
 
@@ -102,13 +105,18 @@ function Login() {
     try {
       setResendLoading(true);
 
-     const response = await api.post("/auth/resend-verification", {
-  email: email.trim(),
-});
+      const response = await api.post(
+        "/auth/resend-verification",
+        {
+          email: email.trim(),
+        }
+      );
 
-setResendMessage(
-  response.data?.message || "Verification request processed."
-);
+      setResendMessage(
+        response.data?.message ||
+          "Verification request processed."
+      );
+
     } catch (err: any) {
       console.error("Resend verification failed:", err);
 
@@ -146,7 +154,10 @@ setResendMessage(
       }
 
       await login(token);
-      navigate("/dashboard");
+
+      // Apply the same history replacement for Google login.
+     navigate("/dashboard");
+
     } catch (err: any) {
       console.error("Google login failed:", err);
 
@@ -162,6 +173,7 @@ setResendMessage(
 
   return (
     <main className="login-page">
+
       {/* Left visual section */}
       <section className="login-visual">
         <div className="visual-orb orb-one" />
@@ -181,6 +193,7 @@ setResendMessage(
       {/* Right login section */}
       <section className="login-section">
         <div className="login-content">
+
           {/* Brand */}
           <div className="brand">
             <span className="brand-name">Clarity</span>
@@ -189,13 +202,14 @@ setResendMessage(
 
           {/* Login card */}
           <div className="login-card">
+
             {/* Heading */}
             <div className="login-heading">
               <h1>Welcome back</h1>
               <p>Take a moment for yourself.</p>
             </div>
 
-            {/* Google OAuth — existing implementation preserved */}
+            {/* Google OAuth */}
             <div className="google-login-wrapper">
               <button
                 type="button"
@@ -252,6 +266,7 @@ setResendMessage(
 
             {/* Login form */}
             <form onSubmit={handleLogin}>
+
               {/* Email */}
               <div className="form-group">
                 <label htmlFor="email">Email</label>
@@ -369,12 +384,14 @@ setResendMessage(
               Don't have an account?{" "}
               <a href="/register">Create account</a>
             </p>
+
           </div>
 
           {/* Footer */}
           <p className="login-footer">
             Clarity is designed to support awareness and wellbeing.
           </p>
+
         </div>
       </section>
     </main>
