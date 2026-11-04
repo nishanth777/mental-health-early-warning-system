@@ -151,6 +151,7 @@ def get_facial_model():
 def detect_and_crop_face(image):
     import cv2
     import numpy as np
+    face_detector = get_face_detector()
     """Detect the largest face and return a cropped PIL image."""
 
     image = image.convert("RGB")
