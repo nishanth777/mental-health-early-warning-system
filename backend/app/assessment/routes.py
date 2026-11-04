@@ -171,21 +171,21 @@ def submit_assessment():
             print("📷 Facial upload warning: Invalid file extension.")
         else:
             try:
-                 from .facial_service import predict_facial_emotion
+                from .facial_service import predict_facial_emotion
 
-                 facial_result = predict_facial_emotion(facial_file)
+                facial_result = predict_facial_emotion(facial_file)
 
-                 facial_emotion = facial_result["emotion"]
-                 facial_confidence = facial_result["confidence"]
+                facial_emotion = facial_result["emotion"]
+                facial_confidence = facial_result["confidence"]
 
-                 facial_used = True
+                facial_used = True
 
-                 print(
+                print(
                     "📷 Facial emotion detected:",
                     facial_emotion
                 )
 
-                 print(
+                print(
                     "📷 Facial confidence:",
                     facial_confidence
                 )
