@@ -1,10 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
 
-import cv2
-import numpy as np
-from PIL import Image
-
 
 # ------------------------------------------------------------
 # Paths
@@ -147,6 +143,8 @@ def get_facial_model():
 # ------------------------------------------------------------
 
 def detect_and_crop_face(image):
+    import cv2
+    import numpy as np
     """Detect the largest face and return a cropped PIL image."""
 
     image = image.convert("RGB")
@@ -198,6 +196,7 @@ def detect_and_crop_face(image):
 # ------------------------------------------------------------
 
 def predict_facial_emotion(image):
+    from PIL import Image
     if image is None:
         raise ValueError("No facial image was provided.")
 
