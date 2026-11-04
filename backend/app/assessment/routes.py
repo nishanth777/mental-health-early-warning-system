@@ -2,14 +2,14 @@ import math
 from flask import jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from backend.app.assessment.facial_service import predict_facial_emotion
+
 from . import assessment_bp
 from .services import (
     predict_depression,
     get_risk_level,
     generate_recommendations,
 )
-from .nlp_service import predict_nlp_risk
-from .facial_service import predict_facial_emotion
 
 from app.extensions import db
 from app.models.assessment import Assessment
@@ -18,7 +18,7 @@ from app.models.assessment import Assessment
 @assessment_bp.route("/", methods=["POST"])
 @jwt_required()
 def submit_assessment():
-
+    from .nlp_service import predict_nlp_risk
     identity = get_jwt_identity()
 
     # --------------------------------------------------------
@@ -173,7 +173,9 @@ def submit_assessment():
             print("📷 Facial upload warning: Invalid file extension.")
         else:
             try:
+                from .facial_service import predict_facial_emotion
 
+                facial_result = predict_facial_emotion(facial_file)
                 facial_result = (
                     predict_facial_emotion(
                         facial_file
