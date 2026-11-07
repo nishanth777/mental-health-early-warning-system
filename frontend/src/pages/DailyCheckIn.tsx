@@ -36,8 +36,29 @@ import api from "../services/api";
 import VoiceInput from "../components/VoiceInput";
 
 import "../App.css";
+import ExplainabilityPanel from "../components/ExplainabilityPanel";
 
+interface ExplanationFactor {
+  feature: string;
+  label: string;
+  value: number;
+  baseline_value: number;
+  contribution: number;
+  direction:
+    | "increases_concern"
+    | "decreases_concern"
+    | "neutral";
+}
 
+interface AssessmentExplanation {
+  method: string;
+  baseline_source: string;
+  increasing_factors: ExplanationFactor[];
+  decreasing_factors: ExplanationFactor[];
+  neutral_factors: ExplanationFactor[];
+  all_factors: ExplanationFactor[];
+  note: string;
+}
 interface AssessmentResult {
   prediction: number;
   risk_score: number;
@@ -54,6 +75,7 @@ interface AssessmentResult {
   structured_risk_score?: number;
   nlp_risk_score?: number | null;
   nlp_used?: boolean;
+  explanation?: AssessmentExplanation;
 }
 
 
@@ -1107,6 +1129,13 @@ function DailyCheckIn() {
               self-reported wellbeing data.
               It is not a medical diagnosis.
             </p>
+            {/* Explainable AI */}
+
+             {result.explanation && (
+                  <ExplainabilityPanel
+                    explanation={result.explanation}
+                   />
+              )}
 
 
             {/* =========================
