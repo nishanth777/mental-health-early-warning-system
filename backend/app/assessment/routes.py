@@ -5,6 +5,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from . import assessment_bp
 from .services import (
     predict_depression,
+    explain_structured_prediction,
     get_risk_level,
     generate_recommendations,
 )
@@ -208,7 +209,11 @@ def submit_assessment():
     structured_prediction, structured_risk_score = (
         predict_depression(data)
     )
+    # --------------------------------------------------------
+    # Explainable AI - Structured Model Explanation
+    # --------------------------------------------------------
 
+    structured_explanation = explain_structured_prediction(data)
     # --------------------------------------------------------
     # NLP prediction
     # --------------------------------------------------------
@@ -407,9 +412,13 @@ def submit_assessment():
                 "validation"
             ),
 
-        # Recommendations
+       # Recommendations
         "recommendations":
-            recommendations
+            recommendations,
+
+        # Explainable AI
+            "explanation":
+                structured_explanation
 
     }), 201
 
